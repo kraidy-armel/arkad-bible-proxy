@@ -668,6 +668,47 @@ app.post('/api/verse-text-batch', async (req, res) => {
   }
 });
 
+// ── CLASSIFICATION D'UNE RÉFÉRENCE DANS LES 4 PÉRIODES ──
+// Sert à placer automatiquement un texte d'explication choisi par
+// l'utilisateur (et non par l'IA) dans la bonne période/zone, selon les
+// mêmes règles de répartition des livres que celles imposées à l'IA.
+const OSIS_TO_PERIODE = {
+  Josh: 'histoire', Judg: 'histoire', Ruth: 'histoire', '1Sam': 'histoire', '2Sam': 'histoire',
+  '1Kgs': 'histoire', '2Kgs': 'histoire', '1Chr': 'histoire', '2Chr': 'histoire', Ezra: 'histoire',
+  Neh: 'histoire', Esth: 'histoire', Acts: 'histoire',
+  Gen: 'loi', Exod: 'loi', Lev: 'loi', Num: 'loi', Deut: 'loi', Matt: 'loi', Mark: 'loi', Luke: 'loi', John: 'loi',
+  Isa: 'prophetie', Jer: 'prophetie', Lam: 'prophetie', Ezek: 'prophetie', Dan: 'prophetie', Hos: 'prophetie',
+  Joel: 'prophetie', Amos: 'prophetie', Obad: 'prophetie', Jonah: 'prophetie', Mic: 'prophetie', Nah: 'prophetie',
+  Hab: 'prophetie', Zeph: 'prophetie', Hag: 'prophetie', Zech: 'prophetie', Mal: 'prophetie', Rev: 'prophetie',
+  Job: 'poesie', Ps: 'poesie', Prov: 'poesie', Eccl: 'poesie', Song: 'poesie',
+  Rom: 'poesie', '1Cor': 'poesie', '2Cor': 'poesie', Gal: 'poesie', Eph: 'poesie', Phil: 'poesie', Col: 'poesie',
+  '1Thess': 'poesie', '2Thess': 'poesie', '1Tim': 'poesie', '2Tim': 'poesie', Titus: 'poesie', Phlm: 'poesie',
+  Heb: 'poesie', Jas: 'poesie', '1Pet': 'poesie', '2Pet': 'poesie', '1John': 'poesie', '2John': 'poesie',
+  '3John': 'poesie', Jude: 'poesie'
+};
+const OT_OSIS_SET = new Set(LSG_BOOKS.slice(0, 39).map(b => b[1]));
+function zoneOfOsis(osis) { return OT_OSIS_SET.has(osis) ? 'at' : 'nt'; }
+
+// GET /api/classify-ref?ref=Romains 8:28
+app.get('/api/classify-ref', async (req, res) => {
+  try {
+    const ref = (req.query.ref || '').toString();
+    const parsed = parseFrenchRef(ref);
+    if (!parsed) return res.status(400).json({ error: { message: 'Référence non reconnue : ' + ref } });
+    const periode = OSIS_TO_PERIODE[parsed.osis];
+    if (!periode) return res.status(400).json({ error: { message: 'Ce livre ne correspond à aucune des 4 périodes de la méthode Dr. Arkad.' } });
+    const zone = zoneOfOsis(parsed.osis);
+    const vt = await getVerbatimText(ref);
+    if (!vt) return res.status(404).json({ error: { message: 'Verset introuvable : ' + ref } });
+    const ranges = (parsed.ranges && parsed.ranges.length) ? parsed.ranges : [{ verseStart: parsed.verseStart, verseEnd: parsed.verseEnd }];
+    const frRef = formatFrRefRanges(parsed.osis, parsed.chapter, ranges);
+    res.json({ ref: frRef, periode, zone, texte: vt.text });
+  } catch (err) {
+    console.error('Erreur classify-ref:', err);
+    res.status(500).json({ error: { message: 'Erreur classify-ref : ' + err.message } });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Proxy EFBC Mission God en écoute sur le port ${PORT}`);
