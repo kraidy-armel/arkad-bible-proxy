@@ -358,9 +358,28 @@ function parseVerseList(versesStr) {
   }).filter(Boolean);
 }
 
-// Découpe le contenu brut d'une note \xt (ex. "Ge 3:15; 22:18. Ac 26:9-20. ")
-// en une liste de références {osis, chapter, verseStart, verseEnd} — les
-// plages ("9-20") sont conservées telles quelles, pas réduites au 1er verset.
+// Fusionne uniquement les plages VRAIMENT adjacentes/qui se recouvrent
+// (ex. [1,1] et [2,5] -> [1,5]) ; deux versets éloignés (ex. 1 et 16)
+// restent deux plages distinctes au sein de la même référence groupée.
+function mergeRanges(ranges) {
+  const sorted = [...ranges].sort((a, b) => a.verseStart - b.verseStart);
+  const merged = [];
+  for (const r of sorted) {
+    const last = merged.length ? merged[merged.length - 1] : null;
+    if (last && r.verseStart <= last.verseEnd + 1) {
+      last.verseEnd = Math.max(last.verseEnd, r.verseEnd);
+    } else {
+      merged.push({ ...r });
+    }
+  }
+  return merged;
+}
+
+// Découpe le contenu brut d'une note \xt (ex. "Ge 3:15; 22:18. Es 19:1, 16. ")
+// en une liste de références groupées {osis, chapter, ranges:[{verseStart,verseEnd}]}.
+// Chaque "clause" du texte source (ex. "19:1, 16") devient UNE seule référence
+// groupée — exactement comme elle est imprimée dans la Bible Segond — plutôt
+// que d'être éclatée en plusieurs cartes "preuves" séparées.
 function parseXtRefs(raw) {
   const refs = [];
   const segments = raw.split('.').map(s => s.trim()).filter(Boolean);
@@ -386,33 +405,34 @@ function parseXtRefs(raw) {
         continue;
       }
       if (!osis) continue;
-      for (const vr of parseVerseList(versesStr)) {
-        refs.push({ osis, chapter, verseStart: vr.verseStart, verseEnd: vr.verseEnd });
-      }
+      const ranges = mergeRanges(parseVerseList(versesStr));
+      if (ranges.length) refs.push({ osis, chapter, ranges });
     }
   }
   return refs;
 }
 
-// Fusionne des références consécutives/adjacentes du même livre+chapitre
-// (ex. "1 Co 15:9" suivi de "1 Co 15:10" -> "1 Corinthiens 15:9-10") et les
-// formate. Ignore les doublons exacts (même plage répétée plusieurs fois).
+// Formate une référence groupée, ex. {osis:'Isa',chapter:19,ranges:[{1,1},{16,16}]}
+// -> "Ésaïe 19:1, 16" ; {osis:'1Cor',chapter:15,ranges:[{9,10}]} -> "1 Corinthiens 15:9-10".
+function formatFrRefRanges(osisBook, chapter, ranges) {
+  const fr = OSIS_TO_FR[osisBook] || osisBook;
+  const parts = ranges.map(r => r.verseStart === r.verseEnd ? `${r.verseStart}` : `${r.verseStart}-${r.verseEnd}`);
+  return `${fr} ${chapter}:${parts.join(', ')}`;
+}
+
+// Déduplique les références groupées identiques (la même note de section est
+// répétée pour chaque verset de la péricope demandée) et les formate.
 function mergeAndFormatRefs(items, limit) {
-  const merged = [];
   const seen = new Set();
+  const out = [];
   for (const it of items) {
-    const key = `${it.osis}.${it.chapter}.${it.verseStart}-${it.verseEnd}`;
+    const key = `${it.osis}.${it.chapter}.${it.ranges.map(r => r.verseStart + '-' + r.verseEnd).join(',')}`;
     if (seen.has(key)) continue;
-    const last = merged.length ? merged[merged.length - 1] : null;
-    if (last && last.osis === it.osis && last.chapter === it.chapter && it.verseStart <= last.verseEnd + 1) {
-      last.verseEnd = Math.max(last.verseEnd, it.verseEnd);
-      seen.add(key);
-      continue;
-    }
     seen.add(key);
-    merged.push({ osis: it.osis, chapter: it.chapter, verseStart: it.verseStart, verseEnd: it.verseEnd });
+    out.push(formatFrRefRanges(it.osis, it.chapter, it.ranges));
+    if (out.length >= limit) break;
   }
-  return merged.slice(0, limit).map(e => formatFrRef(e.osis, e.chapter, e.verseStart, e.chapter, e.verseEnd));
+  return out;
 }
 
 // Tokenise tout le fichier en alternant segments de texte et balises USFM,
