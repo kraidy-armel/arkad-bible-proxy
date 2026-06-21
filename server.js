@@ -232,13 +232,33 @@ app.get('/api/cross-refs', async (req, res) => {
     const vStart = parsed.verseStart || 1;
     const vEnd = parsed.verseEnd || vStart;
 
-    // Priorité 1 : annotations Segond 1910 elles-mêmes
     let top = [];
-    let source = 'lsg';
+    let source = 'lsg-section';
     try {
       await loadLsgIndex();
       const usfm3 = OSIS_TO_USFM3[parsed.osis];
-      if (usfm3 && lsgXrefIndex) {
+
+      // Priorité 0 : note éditoriale de SECTION ("V. 14-21: cf. ..."), qui correspond
+      // à la péricope entière plutôt qu'à un seul verset — c'est la référence la plus
+      // fidèle à ce qu'on trouve imprimé dans une Bible Segond annotée.
+      if (usfm3 && lsgSectionXrefIndex) {
+        const seen = new Set();
+        const ordered = [];
+        for (let v = vStart; v <= vEnd; v++) {
+          const list = lsgSectionXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || [];
+          for (const r of list) {
+            const k = `${r.osis}.${r.chapter}.${r.verse}`;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            ordered.push(formatFrRef(r.osis, r.chapter, r.verse, r.chapter, r.verse));
+          }
+        }
+        top = ordered.slice(0, 12);
+      }
+
+      // Priorité 1 : à défaut, les notes \xt par verset (agrégées sur la plage demandée)
+      if (!top.length && usfm3 && lsgXrefIndex) {
+        source = 'lsg-verse';
         const seen = new Set();
         const ordered = [];
         for (let v = vStart; v <= vEnd; v++) {
@@ -381,11 +401,12 @@ function parseXtRefs(raw) {
 function parseSfmFile(text, usfm3) {
   const verses = new Map(); // `${chapter}.${verse}` -> texte brut accumulé
   const xrefRaw = new Map(); // `${chapter}.${verse}` -> contenu brut des notes \xt
+  const sectionRefsRaw = new Map(); // chapter -> [{vStart, vEnd, refsText}] (notes \r de section)
   let chapter = null;
   let currentKey = null;
   let noteDepth = 0; // >0 = à l'intérieur d'une note \x...\x* ou \f...\f* (à ignorer)
   let xtCapturing = false; // true = on est juste après \xt, le texte qui suit est la référence
-  let pendingExpect = null; // 'chapterNum' | 'verseNum' | null
+  let pendingExpect = null; // 'chapterNum' | 'verseNum' | 'sectionRef' | null
 
   function appendVerseText(str) {
     if (noteDepth > 0 || !currentKey || !str) return;
@@ -417,6 +438,7 @@ function parseSfmFile(text, usfm3) {
       }
       if (name === 'c') { pendingExpect = 'chapterNum'; currentKey = null; continue; }
       if (name === 'v') { pendingExpect = 'verseNum'; continue; }
+      if (name === 'r') { pendingExpect = 'sectionRef'; currentKey = null; continue; }
       if (SFM_SKIP_MARKERS.has(name)) { currentKey = null; pendingExpect = null; continue; }
       // Autres balises (\p, \m, \q, \q1, \add, \nd, \wj, etc.) : pas de changement
       // d'état, le texte qui suit continue simplement le verset en cours.
@@ -443,6 +465,24 @@ function parseSfmFile(text, usfm3) {
         str = m[2];
       }
       pendingExpect = null;
+      appendVerseText(str);
+      continue;
+    }
+    if (pendingExpect === 'sectionRef') {
+      // Note de section éditoriale, ex. "V. 14-21: cf. (No 21:4-9. Jn 12:32, 33.) ..."
+      // C'est la référence croisée IMPRIMÉE pour toute la péricope, bien plus
+      // pertinente que d'agréger les notes individuelles de chaque verset.
+      pendingExpect = null;
+      const raw = str.trim();
+      const m = raw.match(/^V\.?\s*(\d+)(?:[-–](\d+))?\s*:\s*cf\.?\s*([\s\S]*)$/i);
+      if (m) {
+        const vStart = parseInt(m[1], 10);
+        const vEnd = m[2] ? parseInt(m[2], 10) : vStart;
+        const refsText = m[3].replace(/[()]/g, '');
+        if (!sectionRefsRaw.has(chapter)) sectionRefsRaw.set(chapter, []);
+        sectionRefsRaw.get(chapter).push({ vStart, vEnd, refsText });
+      }
+      continue;
     }
     appendVerseText(str);
   }
@@ -457,11 +497,22 @@ function parseSfmFile(text, usfm3) {
     const list = parseXtRefs(raw);
     if (list.length) xrefs.set(usfm3 + '.' + k, list);
   }
-  return { texts, xrefs };
+  const sectionXrefs = new Map();
+  for (const [chap, sections] of sectionRefsRaw.entries()) {
+    for (const sec of sections) {
+      const list = parseXtRefs(sec.refsText);
+      if (!list.length) continue;
+      for (let v = sec.vStart; v <= sec.vEnd; v++) {
+        sectionXrefs.set(usfm3 + '.' + chap + '.' + v, list);
+      }
+    }
+  }
+  return { texts, xrefs, sectionXrefs };
 }
 
 let lsgIndex = null;
 let lsgXrefIndex = null;
+let lsgSectionXrefIndex = null;
 let lsgLoading = null;
 
 async function loadLsgIndex() {
@@ -470,6 +521,7 @@ async function loadLsgIndex() {
   lsgLoading = (async () => {
     const idx = new Map();
     const xrefIdx = new Map();
+    const sectionIdx = new Map();
     const results = await Promise.all(LSG_BOOKS.map(async ([num, , usfm3]) => {
       const url = `${LSG_BASE_URL}${num}-${usfm3}.p.sfm`;
       try {
@@ -486,10 +538,12 @@ async function loadLsgIndex() {
       if (!book) continue;
       for (const [k, v] of book.texts.entries()) idx.set(k, v);
       for (const [k, v] of book.xrefs.entries()) xrefIdx.set(k, v);
+      for (const [k, v] of book.sectionXrefs.entries()) sectionIdx.set(k, v);
     }
     lsgIndex = idx;
     lsgXrefIndex = xrefIdx;
-    console.log(`LSG1910 chargé : ${idx.size} versets indexés, ${xrefIdx.size} versets avec références croisées.`);
+    lsgSectionXrefIndex = sectionIdx;
+    console.log(`LSG1910 chargé : ${idx.size} versets indexés, ${xrefIdx.size} versets avec xrefs, ${sectionIdx.size} versets avec note de section.`);
     return idx;
   })().catch(err => {
     lsgLoading = null;
