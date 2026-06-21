@@ -159,15 +159,32 @@ for (const [k, v] of Object.entries(EXTRA_ALIASES)) {
   FR_TO_OSIS[stripAccents(k)] = v;
 }
 
+// Accepte aussi bien "Livre ch:v", "Livre ch:v1-v2" que les références
+// groupées non-contiguës "Livre ch:v1, v2" / "Livre ch:v1-v3, v8" (telles que
+// produites par mergeAndFormatRefs pour les "preuves"). `ranges` contient
+// toutes les sous-plages ; verseStart/verseEnd restent la plage globale
+// (min/max) pour la compatibilité avec le code existant (ex. /api/cross-refs).
 function parseFrenchRef(ref) {
-  const m = (ref || '').trim().match(/^(.*\S)\s+(\d+)(?:[:.](\d+)(?:[-–](\d+))?)?$/);
-  if (!m) return null;
-  const osis = FR_TO_OSIS[stripAccents(m[1])];
+  const s = (ref || '').trim();
+  // On essaie d'abord la forme "Livre chapitre:versets" (le ":"/"." est alors
+  // OBLIGATOIRE dans cette branche, pour éviter qu'un nombre de fin de liste
+  // de versets — ex. le "16" de "19:1, 16" — soit avalé à tort comme chapitre
+  // par un groupe nom-de-livre trop gourmand).
+  let m = s.match(/^(.*\S)\s+(\d+)[:.]\s*([\d,\s–-]+)$/);
+  let book, chapter, versesStr = null;
+  if (m) {
+    book = m[1]; chapter = parseInt(m[2], 10); versesStr = m[3];
+  } else {
+    m = s.match(/^(.*\S)\s+(\d+)$/);
+    if (!m) return null;
+    book = m[1]; chapter = parseInt(m[2], 10);
+  }
+  const osis = FR_TO_OSIS[stripAccents(book)];
   if (!osis) return null;
-  const chapter = parseInt(m[2], 10);
-  const verseStart = m[3] ? parseInt(m[3], 10) : null;
-  const verseEnd = m[4] ? parseInt(m[4], 10) : verseStart;
-  return { osis, chapter, verseStart, verseEnd };
+  const ranges = versesStr ? mergeRanges(parseVerseList(versesStr)) : [];
+  const verseStart = ranges.length ? ranges[0].verseStart : null;
+  const verseEnd = ranges.length ? ranges[ranges.length - 1].verseEnd : verseStart;
+  return { osis, chapter, verseStart, verseEnd, ranges };
 }
 
 async function loadCrossRefIndex() {
@@ -595,19 +612,24 @@ async function loadLsgIndex() {
   return lsgLoading;
 }
 
-// Retourne { verses: [{n, texte}], text } pour une référence française (verset ou plage).
+// Retourne { verses: [{n, texte}], text } pour une référence française (verset,
+// plage, ou référence groupée non-contiguë "ch:v1, v2-v3" — toutes les sous-
+// plages sont parcourues, dans l'ordre).
 async function getVerbatimText(ref) {
   const parsed = parseFrenchRef(ref);
   if (!parsed) return null;
   const usfm3 = OSIS_TO_USFM3[parsed.osis];
   if (!usfm3) return null;
   const idx = await loadLsgIndex();
-  const vStart = parsed.verseStart || 1;
-  const vEnd = parsed.verseEnd || vStart;
+  const ranges = (parsed.ranges && parsed.ranges.length)
+    ? parsed.ranges
+    : [{ verseStart: parsed.verseStart || 1, verseEnd: parsed.verseEnd || parsed.verseStart || 1 }];
   const verses = [];
-  for (let v = vStart; v <= vEnd; v++) {
-    const texte = idx.get(usfm3 + '.' + parsed.chapter + '.' + v);
-    if (texte) verses.push({ n: v, texte });
+  for (const r of ranges) {
+    for (let v = r.verseStart; v <= r.verseEnd; v++) {
+      const texte = idx.get(usfm3 + '.' + parsed.chapter + '.' + v);
+      if (texte) verses.push({ n: v, texte });
+    }
   }
   if (!verses.length) return null;
   const text = verses.length > 1
