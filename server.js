@@ -219,6 +219,9 @@ function formatFrRef(osisBook, chap1, v1, chap2, v2) {
 
 // Route appelée par index.html avant de construire le prompt :
 // GET /api/cross-refs?ref=Jean 3:16-17
+// Priorité 1 : les références imprimées dans la Bible Segond 1910 elle-même
+// (notes \xt du fichier LSG). Si aucune trouvée, on retombe sur la base
+// OpenBible.info (vote-based) à titre de filet de sécurité.
 app.get('/api/cross-refs', async (req, res) => {
   try {
     const ref = (req.query.ref || '').toString();
@@ -226,22 +229,52 @@ app.get('/api/cross-refs', async (req, res) => {
     if (!parsed) {
       return res.status(400).json({ error: { message: 'Référence non reconnue : ' + ref } });
     }
-    const idx = await loadCrossRefIndex();
     const vStart = parsed.verseStart || 1;
     const vEnd = parsed.verseEnd || vStart;
-    const combined = new Map();
-    for (let v = vStart; v <= vEnd; v++) {
-      const key = parsed.osis + '.' + parsed.chapter + '.' + v;
-      const entries = idx.get(key) || [];
-      for (const e of entries) {
-        const k = `${e.toBook}.${e.toChap1}.${e.toV1}-${e.toChap2}.${e.toV2}`;
-        if (combined.has(k)) combined.get(k).votes += e.votes;
-        else combined.set(k, { ...e });
+
+    // Priorité 1 : annotations Segond 1910 elles-mêmes
+    let top = [];
+    let source = 'lsg';
+    try {
+      await loadLsgIndex();
+      const usfm3 = OSIS_TO_USFM3[parsed.osis];
+      if (usfm3 && lsgXrefIndex) {
+        const seen = new Set();
+        const ordered = [];
+        for (let v = vStart; v <= vEnd; v++) {
+          const list = lsgXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || [];
+          for (const r of list) {
+            const k = `${r.osis}.${r.chapter}.${r.verse}`;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            ordered.push(formatFrRef(r.osis, r.chapter, r.verse, r.chapter, r.verse));
+          }
+        }
+        top = ordered.slice(0, 12);
       }
+    } catch (e) {
+      console.error('Erreur lecture xrefs LSG:', e);
     }
-    const sorted = Array.from(combined.values()).sort((a, b) => b.votes - a.votes);
-    const top = sorted.slice(0, 10).map(e => formatFrRef(e.toBook, e.toChap1, e.toV1, e.toChap2, e.toV2));
-    res.json({ ref, references: top });
+
+    // Filet de sécurité : OpenBible.info, si la Bible Segond n'a aucune note pour ce passage
+    if (!top.length) {
+      source = 'openbible';
+      const idx = await loadCrossRefIndex();
+      const combined = new Map();
+      for (let v = vStart; v <= vEnd; v++) {
+        const key = parsed.osis + '.' + parsed.chapter + '.' + v;
+        const entries = idx.get(key) || [];
+        for (const e of entries) {
+          const k = `${e.toBook}.${e.toChap1}.${e.toV1}-${e.toChap2}.${e.toV2}`;
+          if (combined.has(k)) combined.get(k).votes += e.votes;
+          else combined.set(k, { ...e });
+        }
+      }
+      const sorted = Array.from(combined.values()).sort((a, b) => b.votes - a.votes);
+      top = sorted.slice(0, 10).map(e => formatFrRef(e.toBook, e.toChap1, e.toV1, e.toChap2, e.toV2));
+    }
+
+    res.json({ ref, references: top, source });
   } catch (err) {
     console.error('Erreur cross-refs:', err);
     res.status(500).json({ error: { message: 'Erreur cross-refs : ' + err.message } });
@@ -289,15 +322,69 @@ function cleanSfmText(raw) {
     .trim();
 }
 
+// Abréviations françaises "Segond" utilisées dans les notes \xt du fichier
+// USFM lui-même (ex. "Ro 5:8", "1 Jn 4:9", "Ge 3:15; 22:18") — c'est la
+// référence croisée IMPRIMÉE dans la Bible Segond 1910, donc la source la
+// plus fidèle possible pour la section "preuves".
+const ABBREV_TO_OSIS = {
+  ge:'Gen', ex:'Exod', le:'Lev', no:'Num', de:'Deut', jos:'Josh', jg:'Judg', ru:'Ruth',
+  '1s':'1Sam', '2s':'2Sam', '1r':'1Kgs', '2r':'2Kgs', '1ch':'1Chr', '2ch':'2Chr',
+  esd:'Ezra', ne:'Neh', est:'Esth', job:'Job', ps:'Ps', pr:'Prov', ec:'Eccl', ca:'Song',
+  es:'Isa', je:'Jer', la:'Lam', ez:'Ezek', da:'Dan', os:'Hos', joe:'Joel', am:'Amos',
+  ab:'Obad', jon:'Jonah', mi:'Mic', na:'Nah', ha:'Hab', so:'Zeph', ag:'Hag', za:'Zech', mal:'Mal',
+  mt:'Matt', mc:'Mark', lu:'Luke', jn:'John', ac:'Acts', ro:'Rom', '1co':'1Cor', '2co':'2Cor',
+  ga:'Gal', ep:'Eph', ph:'Phil', col:'Col', '1th':'1Thess', '2th':'2Thess', '1ti':'1Tim', '2ti':'2Tim',
+  tit:'Titus', phm:'Phlm', he:'Heb', ja:'Jas', '1pi':'1Pet', '2pi':'2Pet',
+  '1jn':'1John', '2jn':'2John', '3jn':'3John', jude:'Jude', ap:'Rev'
+};
+
+// Découpe le contenu brut d'une note \xt (ex. "Ge 3:15; 22:18. Mt 1:1. ")
+// en une liste de références {osis, chapter, verse}.
+function parseXtRefs(raw) {
+  const refs = [];
+  const segments = raw.split('.').map(s => s.trim()).filter(Boolean);
+  for (const seg of segments) {
+    const parts = seg.split(';').map(s => s.trim()).filter(Boolean);
+    let currentOsis = null;
+    for (const part of parts) {
+      const m = part.match(/^(\d\s?[A-Za-zÀ-ÿ]+|[A-Za-zÀ-ÿ]+)\s+(\d+):\s*(\d+(?:[\s,]+\d+)*)/);
+      let osis, chapter, versesStr;
+      if (m) {
+        const abbrevKey = stripAccents(m[1]).replace(/\s+/g, '');
+        osis = ABBREV_TO_OSIS[abbrevKey];
+        if (osis) currentOsis = osis;
+        chapter = parseInt(m[2], 10);
+        versesStr = m[3];
+      } else if (currentOsis) {
+        const m2 = part.match(/^(\d+):\s*(\d+(?:[\s,]+\d+)*)/);
+        if (!m2) continue;
+        osis = currentOsis;
+        chapter = parseInt(m2[1], 10);
+        versesStr = m2[2];
+      } else {
+        continue;
+      }
+      if (!osis) continue;
+      const verseNums = versesStr.split(',').map(v => parseInt(v.trim(), 10)).filter(n => !isNaN(n));
+      for (const v of verseNums) refs.push({ osis, chapter, verse: v });
+    }
+  }
+  return refs;
+}
+
 // Tokenise tout le fichier en alternant segments de texte et balises USFM,
 // puis reconstitue verset par verset. Plusieurs balises peuvent apparaître
 // sur une même ligne (fréquent en poésie, ex. "\q1 \v 1 ..."), donc on ne
 // peut pas traiter le fichier ligne par ligne.
+// Retourne { texts: Map, xrefs: Map } — xrefs contient, pour chaque verset,
+// les références croisées imprimées dans la Bible Segond elle-même.
 function parseSfmFile(text, usfm3) {
   const verses = new Map(); // `${chapter}.${verse}` -> texte brut accumulé
+  const xrefRaw = new Map(); // `${chapter}.${verse}` -> contenu brut des notes \xt
   let chapter = null;
   let currentKey = null;
   let noteDepth = 0; // >0 = à l'intérieur d'une note \x...\x* ou \f...\f* (à ignorer)
+  let xtCapturing = false; // true = on est juste après \xt, le texte qui suit est la référence
   let pendingExpect = null; // 'chapterNum' | 'verseNum' | null
 
   function appendVerseText(str) {
@@ -319,10 +406,15 @@ function parseSfmFile(text, usfm3) {
     if (tok.t === 'tag') {
       const name = tok.name;
       if (name === 'x' || name === 'f') {
-        noteDepth = tok.star ? Math.max(0, noteDepth - 1) : noteDepth + 1;
+        if (tok.star) { noteDepth = Math.max(0, noteDepth - 1); xtCapturing = false; }
+        else { noteDepth += 1; }
         continue;
       }
-      if (noteDepth > 0) continue; // ignore toute autre balise à l'intérieur d'une note
+      if (noteDepth > 0) {
+        if (name === 'xt') { xtCapturing = true; continue; }
+        xtCapturing = false; // \xo ou toute autre sous-balise : on arrête de capturer
+        continue;
+      }
       if (name === 'c') { pendingExpect = 'chapterNum'; currentKey = null; continue; }
       if (name === 'v') { pendingExpect = 'verseNum'; continue; }
       if (SFM_SKIP_MARKERS.has(name)) { currentKey = null; pendingExpect = null; continue; }
@@ -331,7 +423,12 @@ function parseSfmFile(text, usfm3) {
       continue;
     }
     // Token de texte
-    if (noteDepth > 0) continue;
+    if (noteDepth > 0) {
+      if (xtCapturing && currentKey) {
+        xrefRaw.set(currentKey, (xrefRaw.get(currentKey) || '') + tok.v);
+      }
+      continue;
+    }
     let str = tok.v;
     if (pendingExpect === 'chapterNum') {
       const m = str.match(/^\s*(\d+)/);
@@ -350,15 +447,21 @@ function parseSfmFile(text, usfm3) {
     appendVerseText(str);
   }
 
-  const out = new Map();
+  const texts = new Map();
   for (const [k, v] of verses.entries()) {
     const clean = cleanSfmText(v);
-    if (clean) out.set(usfm3 + '.' + k, clean);
+    if (clean) texts.set(usfm3 + '.' + k, clean);
   }
-  return out;
+  const xrefs = new Map();
+  for (const [k, raw] of xrefRaw.entries()) {
+    const list = parseXtRefs(raw);
+    if (list.length) xrefs.set(usfm3 + '.' + k, list);
+  }
+  return { texts, xrefs };
 }
 
 let lsgIndex = null;
+let lsgXrefIndex = null;
 let lsgLoading = null;
 
 async function loadLsgIndex() {
@@ -366,6 +469,7 @@ async function loadLsgIndex() {
   if (lsgLoading) return lsgLoading;
   lsgLoading = (async () => {
     const idx = new Map();
+    const xrefIdx = new Map();
     const results = await Promise.all(LSG_BOOKS.map(async ([num, , usfm3]) => {
       const url = `${LSG_BASE_URL}${num}-${usfm3}.p.sfm`;
       try {
@@ -378,12 +482,14 @@ async function loadLsgIndex() {
         return null;
       }
     }));
-    for (const bookMap of results) {
-      if (!bookMap) continue;
-      for (const [k, v] of bookMap.entries()) idx.set(k, v);
+    for (const book of results) {
+      if (!book) continue;
+      for (const [k, v] of book.texts.entries()) idx.set(k, v);
+      for (const [k, v] of book.xrefs.entries()) xrefIdx.set(k, v);
     }
     lsgIndex = idx;
-    console.log(`LSG1910 chargé : ${idx.size} versets indexés.`);
+    lsgXrefIndex = xrefIdx;
+    console.log(`LSG1910 chargé : ${idx.size} versets indexés, ${xrefIdx.size} versets avec références croisées.`);
     return idx;
   })().catch(err => {
     lsgLoading = null;
