@@ -22,7 +22,7 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
 // Route de vérification (pratique pour tester que le serveur est en ligne)
 app.get('/', (req, res) => {
-  res.send('✅ Arkad Bible proxy en ligne.');
+  res.send('✅ EFBC Mission God proxy en ligne.');
 });
 
 // Route appelée par index.html
@@ -248,7 +248,202 @@ app.get('/api/cross-refs', async (req, res) => {
   }
 });
 
+// ── TEXTE BIBLIQUE LSG1910 VERBATIM ──
+// Source : BibleCorps/FRA-B-LSG1910-PD-UBS (Louis Segond 1910, domaine public),
+// au format USFM (.sfm). On télécharge les 66 livres une seule fois (mis en
+// cache en mémoire), on les nettoie du balisage USFM, et on répond aux
+// requêtes /api/verse-text avec le texte EXACT de n'importe quelle référence
+// (verset unique ou plage), plutôt que de laisser l'IA reformuler le texte.
+const LSG_BASE_URL = 'https://raw.githubusercontent.com/BibleCorps/FRA-B-LSG1910-PD-UBS/main/p.sfm/FRA%5BB%5DLSG1910%5BPD%5DUBS-';
+
+// [numéro de fichier, code OSIS (réutilisé depuis le module cross-refs), code USFM 3 lettres]
+const LSG_BOOKS = [
+  ['01','Gen','GEN'],['02','Exod','EXO'],['03','Lev','LEV'],['04','Num','NUM'],['05','Deut','DEU'],
+  ['06','Josh','JOS'],['07','Judg','JDG'],['08','Ruth','RUT'],['09','1Sam','1SA'],['10','2Sam','2SA'],
+  ['11','1Kgs','1KI'],['12','2Kgs','2KI'],['13','1Chr','1CH'],['14','2Chr','2CH'],['15','Ezra','EZR'],
+  ['16','Neh','NEH'],['17','Esth','EST'],['18','Job','JOB'],['19','Ps','PSA'],['20','Prov','PRO'],
+  ['21','Eccl','ECC'],['22','Song','SNG'],['23','Isa','ISA'],['24','Jer','JER'],['25','Lam','LAM'],
+  ['26','Ezek','EZK'],['27','Dan','DAN'],['28','Hos','HOS'],['29','Joel','JOL'],['30','Amos','AMO'],
+  ['31','Obad','OBA'],['32','Jonah','JON'],['33','Mic','MIC'],['34','Nah','NAM'],['35','Hab','HAB'],
+  ['36','Zeph','ZEP'],['37','Hag','HAG'],['38','Zech','ZEC'],['39','Mal','MAL'],
+  ['41','Matt','MAT'],['42','Mark','MRK'],['43','Luke','LUK'],['44','John','JHN'],['45','Acts','ACT'],
+  ['46','Rom','ROM'],['47','1Cor','1CO'],['48','2Cor','2CO'],['49','Gal','GAL'],['50','Eph','EPH'],
+  ['51','Phil','PHP'],['52','Col','COL'],['53','1Thess','1TH'],['54','2Thess','2TH'],['55','1Tim','1TI'],
+  ['56','2Tim','2TI'],['57','Titus','TIT'],['58','Phlm','PHM'],['59','Heb','HEB'],['60','Jas','JAS'],
+  ['61','1Pet','1PE'],['62','2Pet','2PE'],['63','1John','1JN'],['64','2John','2JN'],['65','3John','3JN'],
+  ['66','Jude','JUD'],['67','Rev','REV']
+];
+const OSIS_TO_USFM3 = {};
+for (const [, osis, usfm3] of LSG_BOOKS) OSIS_TO_USFM3[osis] = usfm3;
+
+// Marqueurs USFM qui ne contiennent jamais de texte de verset (titres, intro, tables, etc.)
+const SFM_SKIP_MARKERS = new Set([
+  'id','ide','ie','h','toc1','toc2','toc3','mt','mt1','mt2','mt3','imt','imt1','imt2','imt3',
+  'ip','io1','io2','io3','ior','rem','tr','tc1','tc2','tc3','ib','b','s','s1','s2','s3','r',
+  'd','sp','periph','is','iot','cl','cp','restore'
+]);
+
+function cleanSfmText(raw) {
+  return raw
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Tokenise tout le fichier en alternant segments de texte et balises USFM,
+// puis reconstitue verset par verset. Plusieurs balises peuvent apparaître
+// sur une même ligne (fréquent en poésie, ex. "\q1 \v 1 ..."), donc on ne
+// peut pas traiter le fichier ligne par ligne.
+function parseSfmFile(text, usfm3) {
+  const verses = new Map(); // `${chapter}.${verse}` -> texte brut accumulé
+  let chapter = null;
+  let currentKey = null;
+  let noteDepth = 0; // >0 = à l'intérieur d'une note \x...\x* ou \f...\f* (à ignorer)
+  let pendingExpect = null; // 'chapterNum' | 'verseNum' | null
+
+  function appendVerseText(str) {
+    if (noteDepth > 0 || !currentKey || !str) return;
+    verses.set(currentKey, (verses.get(currentKey) || '') + str);
+  }
+
+  const tokenRe = /\\([a-zA-Z][a-zA-Z0-9]*)(\*?)/g;
+  let lastIndex = 0, match;
+  const tokens = [];
+  while ((match = tokenRe.exec(text)) !== null) {
+    if (match.index > lastIndex) tokens.push({ t: 'text', v: text.slice(lastIndex, match.index) });
+    tokens.push({ t: 'tag', name: match[1], star: !!match[2] });
+    lastIndex = tokenRe.lastIndex;
+  }
+  if (lastIndex < text.length) tokens.push({ t: 'text', v: text.slice(lastIndex) });
+
+  for (const tok of tokens) {
+    if (tok.t === 'tag') {
+      const name = tok.name;
+      if (name === 'x' || name === 'f') {
+        noteDepth = tok.star ? Math.max(0, noteDepth - 1) : noteDepth + 1;
+        continue;
+      }
+      if (noteDepth > 0) continue; // ignore toute autre balise à l'intérieur d'une note
+      if (name === 'c') { pendingExpect = 'chapterNum'; currentKey = null; continue; }
+      if (name === 'v') { pendingExpect = 'verseNum'; continue; }
+      if (SFM_SKIP_MARKERS.has(name)) { currentKey = null; pendingExpect = null; continue; }
+      // Autres balises (\p, \m, \q, \q1, \add, \nd, \wj, etc.) : pas de changement
+      // d'état, le texte qui suit continue simplement le verset en cours.
+      continue;
+    }
+    // Token de texte
+    if (noteDepth > 0) continue;
+    let str = tok.v;
+    if (pendingExpect === 'chapterNum') {
+      const m = str.match(/^\s*(\d+)/);
+      if (m) chapter = parseInt(m[1], 10);
+      pendingExpect = null;
+      continue; // le reste de la ligne après le numéro de chapitre n'est pas du texte de verset
+    }
+    if (pendingExpect === 'verseNum') {
+      const m = str.match(/^\s*(\d+)([\s\S]*)$/);
+      if (m) {
+        currentKey = chapter + '.' + parseInt(m[1], 10);
+        str = m[2];
+      }
+      pendingExpect = null;
+    }
+    appendVerseText(str);
+  }
+
+  const out = new Map();
+  for (const [k, v] of verses.entries()) {
+    const clean = cleanSfmText(v);
+    if (clean) out.set(usfm3 + '.' + k, clean);
+  }
+  return out;
+}
+
+let lsgIndex = null;
+let lsgLoading = null;
+
+async function loadLsgIndex() {
+  if (lsgIndex) return lsgIndex;
+  if (lsgLoading) return lsgLoading;
+  lsgLoading = (async () => {
+    const idx = new Map();
+    const results = await Promise.all(LSG_BOOKS.map(async ([num, , usfm3]) => {
+      const url = `${LSG_BASE_URL}${num}-${usfm3}.p.sfm`;
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) { console.error(`LSG: échec ${usfm3} (${resp.status})`); return null; }
+        const text = await resp.text();
+        return parseSfmFile(text, usfm3);
+      } catch (e) {
+        console.error(`LSG: erreur ${usfm3}: ${e.message}`);
+        return null;
+      }
+    }));
+    for (const bookMap of results) {
+      if (!bookMap) continue;
+      for (const [k, v] of bookMap.entries()) idx.set(k, v);
+    }
+    lsgIndex = idx;
+    console.log(`LSG1910 chargé : ${idx.size} versets indexés.`);
+    return idx;
+  })().catch(err => {
+    lsgLoading = null;
+    throw err;
+  });
+  return lsgLoading;
+}
+
+// Retourne { verses: [{n, texte}], text } pour une référence française (verset ou plage).
+async function getVerbatimText(ref) {
+  const parsed = parseFrenchRef(ref);
+  if (!parsed) return null;
+  const usfm3 = OSIS_TO_USFM3[parsed.osis];
+  if (!usfm3) return null;
+  const idx = await loadLsgIndex();
+  const vStart = parsed.verseStart || 1;
+  const vEnd = parsed.verseEnd || vStart;
+  const verses = [];
+  for (let v = vStart; v <= vEnd; v++) {
+    const texte = idx.get(usfm3 + '.' + parsed.chapter + '.' + v);
+    if (texte) verses.push({ n: v, texte });
+  }
+  if (!verses.length) return null;
+  const text = verses.length > 1
+    ? verses.map(v => `(${v.n}) ${v.texte}`).join(' ')
+    : verses[0].texte;
+  return { verses, text };
+}
+
+// GET /api/verse-text?ref=Jean 3:16-17
+app.get('/api/verse-text', async (req, res) => {
+  try {
+    const ref = (req.query.ref || '').toString();
+    const result = await getVerbatimText(ref);
+    if (!result) return res.status(404).json({ error: { message: 'Référence introuvable : ' + ref } });
+    res.json({ ref, ...result });
+  } catch (err) {
+    console.error('Erreur verse-text:', err);
+    res.status(500).json({ error: { message: 'Erreur verse-text : ' + err.message } });
+  }
+});
+
+// POST /api/verse-text-batch  { refs: ["Jean 3:16-17", "Romains 5:8", ...] }
+app.post('/api/verse-text-batch', async (req, res) => {
+  try {
+    const refs = Array.isArray(req.body.refs) ? req.body.refs : [];
+    const results = {};
+    for (const ref of refs) {
+      if (results[ref]) continue; // évite de refaire le travail pour des doublons
+      const r = await getVerbatimText(ref);
+      if (r) results[ref] = r;
+    }
+    res.json({ results });
+  } catch (err) {
+    console.error('Erreur verse-text-batch:', err);
+    res.status(500).json({ error: { message: 'Erreur verse-text-batch : ' + err.message } });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Proxy Arkad Bible en écoute sur le port ${PORT}`);
+  console.log(`Proxy EFBC Mission God en écoute sur le port ${PORT}`);
 });
