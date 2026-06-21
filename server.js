@@ -242,35 +242,23 @@ app.get('/api/cross-refs', async (req, res) => {
       // à la péricope entière plutôt qu'à un seul verset — c'est la référence la plus
       // fidèle à ce qu'on trouve imprimé dans une Bible Segond annotée.
       if (usfm3 && lsgSectionXrefIndex) {
-        const seen = new Set();
-        const ordered = [];
+        const items = [];
         for (let v = vStart; v <= vEnd; v++) {
           const list = lsgSectionXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || [];
-          for (const r of list) {
-            const k = `${r.osis}.${r.chapter}.${r.verse}`;
-            if (seen.has(k)) continue;
-            seen.add(k);
-            ordered.push(formatFrRef(r.osis, r.chapter, r.verse, r.chapter, r.verse));
-          }
+          items.push(...list);
         }
-        top = ordered.slice(0, 12);
+        top = mergeAndFormatRefs(items, 12);
       }
 
       // Priorité 1 : à défaut, les notes \xt par verset (agrégées sur la plage demandée)
       if (!top.length && usfm3 && lsgXrefIndex) {
         source = 'lsg-verse';
-        const seen = new Set();
-        const ordered = [];
+        const items = [];
         for (let v = vStart; v <= vEnd; v++) {
           const list = lsgXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || [];
-          for (const r of list) {
-            const k = `${r.osis}.${r.chapter}.${r.verse}`;
-            if (seen.has(k)) continue;
-            seen.add(k);
-            ordered.push(formatFrRef(r.osis, r.chapter, r.verse, r.chapter, r.verse));
-          }
+          items.push(...list);
         }
-        top = ordered.slice(0, 12);
+        top = mergeAndFormatRefs(items, 12);
       }
     } catch (e) {
       console.error('Erreur lecture xrefs LSG:', e);
@@ -358,8 +346,21 @@ const ABBREV_TO_OSIS = {
   '1jn':'1John', '2jn':'2John', '3jn':'3John', jude:'Jude', ap:'Rev'
 };
 
-// Découpe le contenu brut d'une note \xt (ex. "Ge 3:15; 22:18. Mt 1:1. ")
-// en une liste de références {osis, chapter, verse}.
+// Découpe une liste de versets façon "9-20" ou "9, 10" ou "9-11, 15" en
+// plages {verseStart, verseEnd}.
+function parseVerseList(versesStr) {
+  return versesStr.split(',').map(tok => tok.trim()).filter(Boolean).map(tok => {
+    const r = tok.match(/^(\d+)(?:[-–](\d+))?$/);
+    if (!r) return null;
+    const vs = parseInt(r[1], 10);
+    const ve = r[2] ? parseInt(r[2], 10) : vs;
+    return { verseStart: vs, verseEnd: ve };
+  }).filter(Boolean);
+}
+
+// Découpe le contenu brut d'une note \xt (ex. "Ge 3:15; 22:18. Ac 26:9-20. ")
+// en une liste de références {osis, chapter, verseStart, verseEnd} — les
+// plages ("9-20") sont conservées telles quelles, pas réduites au 1er verset.
 function parseXtRefs(raw) {
   const refs = [];
   const segments = raw.split('.').map(s => s.trim()).filter(Boolean);
@@ -367,7 +368,7 @@ function parseXtRefs(raw) {
     const parts = seg.split(';').map(s => s.trim()).filter(Boolean);
     let currentOsis = null;
     for (const part of parts) {
-      const m = part.match(/^(\d\s?[A-Za-zÀ-ÿ]+|[A-Za-zÀ-ÿ]+)\s+(\d+):\s*(\d+(?:[\s,]+\d+)*)/);
+      const m = part.match(/^(\d\s?[A-Za-zÀ-ÿ]+|[A-Za-zÀ-ÿ]+)\s+(\d+):\s*([\d,\s–-]+)/);
       let osis, chapter, versesStr;
       if (m) {
         const abbrevKey = stripAccents(m[1]).replace(/\s+/g, '');
@@ -376,7 +377,7 @@ function parseXtRefs(raw) {
         chapter = parseInt(m[2], 10);
         versesStr = m[3];
       } else if (currentOsis) {
-        const m2 = part.match(/^(\d+):\s*(\d+(?:[\s,]+\d+)*)/);
+        const m2 = part.match(/^(\d+):\s*([\d,\s–-]+)/);
         if (!m2) continue;
         osis = currentOsis;
         chapter = parseInt(m2[1], 10);
@@ -385,11 +386,33 @@ function parseXtRefs(raw) {
         continue;
       }
       if (!osis) continue;
-      const verseNums = versesStr.split(',').map(v => parseInt(v.trim(), 10)).filter(n => !isNaN(n));
-      for (const v of verseNums) refs.push({ osis, chapter, verse: v });
+      for (const vr of parseVerseList(versesStr)) {
+        refs.push({ osis, chapter, verseStart: vr.verseStart, verseEnd: vr.verseEnd });
+      }
     }
   }
   return refs;
+}
+
+// Fusionne des références consécutives/adjacentes du même livre+chapitre
+// (ex. "1 Co 15:9" suivi de "1 Co 15:10" -> "1 Corinthiens 15:9-10") et les
+// formate. Ignore les doublons exacts (même plage répétée plusieurs fois).
+function mergeAndFormatRefs(items, limit) {
+  const merged = [];
+  const seen = new Set();
+  for (const it of items) {
+    const key = `${it.osis}.${it.chapter}.${it.verseStart}-${it.verseEnd}`;
+    if (seen.has(key)) continue;
+    const last = merged.length ? merged[merged.length - 1] : null;
+    if (last && last.osis === it.osis && last.chapter === it.chapter && it.verseStart <= last.verseEnd + 1) {
+      last.verseEnd = Math.max(last.verseEnd, it.verseEnd);
+      seen.add(key);
+      continue;
+    }
+    seen.add(key);
+    merged.push({ osis: it.osis, chapter: it.chapter, verseStart: it.verseStart, verseEnd: it.verseEnd });
+  }
+  return merged.slice(0, limit).map(e => formatFrRef(e.osis, e.chapter, e.verseStart, e.chapter, e.verseEnd));
 }
 
 // Tokenise tout le fichier en alternant segments de texte et balises USFM,
