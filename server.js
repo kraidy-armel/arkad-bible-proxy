@@ -1,8 +1,7 @@
-// server.js — Proxy Anthropic pour Arkad Bible
-// Rôle : recevoir les requêtes du navigateur (index.html), y ajouter la clé API
-// Anthropic côté serveur (jamais exposée au client), et renvoyer la réponse.
-// Cela élimine l'erreur CORS car l'appel à api.anthropic.com se fait
-// maintenant serveur-à-serveur, plus depuis le navigateur.
+// server.js — Proxy Google Gemini pour Arkad Bible
+// Rôle : recevoir les requêtes du navigateur (index.html) au format Anthropic,
+// les traduire vers l'API Google Gemini (gratuite), et retourner la réponse
+// au même format Anthropic — sans modifier index.html.
 
 const express = require('express');
 const cors = require('cors');
@@ -10,44 +9,79 @@ const cors = require('cors');
 const app = express();
 
 // Autorise les requêtes cross-origin (GitHub Pages -> Render).
-// Vous pouvez restreindre à votre domaine GitHub Pages une fois que tout fonctionne :
-// app.use(cors({ origin: 'https://VOTRE-COMPTE.github.io' }));
 app.use(cors());
 
 app.use(express.json({ limit: '2mb' }));
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const ANTHROPIC_VERSION = '2023-06-01';
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-// Route de vérification (pratique pour tester que le serveur est en ligne)
+// Route de vérification
 app.get('/', (req, res) => {
-  res.send('✅ EFBC Mission God proxy en ligne.');
+  res.send('✅ EFBC Mission God proxy (Gemini) en ligne.');
 });
 
-// Route appelée par index.html
+// Route appelée par index.html — accepte le format Anthropic, répond en format Anthropic.
+// En interne, traduit vers l'API Gemini (gratuite et rapide).
 app.post('/api/messages', async (req, res) => {
-  if (!ANTHROPIC_API_KEY) {
+  if (!GEMINI_API_KEY) {
     return res.status(500).json({
-      error: { message: 'ANTHROPIC_API_KEY manquante. Configurez-la dans les variables d’environnement Render.' }
+      error: { message: "GEMINI_API_KEY manquante. Configurez-la dans les variables d'environnement Render." }
     });
   }
 
   try {
-    const anthropicResponse = await fetch(ANTHROPIC_URL, {
+    // ── Traduction format Anthropic → Gemini ──────────────────────────────────
+    const { system, messages = [], max_tokens } = req.body;
+
+    // Instruction système (optionnelle)
+    const systemInstruction = system
+      ? { parts: [{ text: system }] }
+      : undefined;
+
+    // Conversion des messages : role "assistant" → "model" pour Gemini
+    const contents = messages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: typeof m.content === 'string' ? m.content : m.content.map(c => c.text || '').join('') }]
+    }));
+
+    const geminiBody = {
+      contents,
+      generationConfig: {
+        maxOutputTokens: max_tokens || 8192,
+        temperature: 0.3
+      }
+    };
+    if (systemInstruction) geminiBody.systemInstruction = systemInstruction;
+
+    // ── Appel Gemini ──────────────────────────────────────────────────────────
+    const geminiResponse = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': ANTHROPIC_VERSION
-      },
-      body: JSON.stringify(req.body)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(geminiBody)
     });
 
-    const data = await anthropicResponse.json();
-    res.status(anthropicResponse.status).json(data);
+    const geminiData = await geminiResponse.json();
+
+    if (!geminiResponse.ok) {
+      console.error('Erreur Gemini:', JSON.stringify(geminiData));
+      return res.status(geminiResponse.status).json({
+        error: { message: geminiData.error?.message || 'Erreur Gemini inconnue' }
+      });
+    }
+
+    // ── Traduction réponse Gemini → format Anthropic ──────────────────────────
+    const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const anthropicCompatible = {
+      content: [{ type: 'text', text }],
+      model: GEMINI_MODEL,
+      stop_reason: 'end_turn'
+    };
+
+    res.json(anthropicCompatible);
   } catch (err) {
-    console.error('Erreur proxy:', err);
+    console.error('Erreur proxy Gemini:', err);
     res.status(500).json({ error: { message: 'Erreur du proxy : ' + err.message } });
   }
 });
