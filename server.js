@@ -250,6 +250,7 @@ function parseFrenchRef(ref) {
     const potO2 = FR_TO_OSIS[stripAccents(book)];
     if (potO2 && SINGLE_CHAPTER_OSIS.has(potO2)) { versesStr = String(chapter); chapter = 1; }
   }
+  }
   const osis = FR_TO_OSIS[stripAccents(book)];
   if (!osis) return null;
   const ranges = versesStr ? mergeRanges(parseVerseList(versesStr)) : [];
