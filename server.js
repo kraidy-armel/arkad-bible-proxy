@@ -220,6 +220,8 @@ for (const [k, v] of Object.entries(EXTRA_ALIASES)) {
   FR_TO_OSIS[stripAccents(k)] = v;
 }
 
+const SINGLE_CHAPTER_OSIS = new Set(['Obad','Phlm','2John','3John','Jude']);
+
 // Accepte aussi bien "Livre ch:v", "Livre ch:v1-v2" que les références
 // groupées non-contiguës "Livre ch:v1, v2" / "Livre ch:v1-v3, v8" (telles que
 // produites par mergeAndFormatRefs pour les "preuves"). `ranges` contient
@@ -237,8 +239,16 @@ function parseFrenchRef(ref) {
     book = m[1]; chapter = parseInt(m[2], 10); versesStr = m[3];
   } else {
     m = s.match(/^(.*\S)\s+(\d+)$/);
-    if (!m) return null;
+  if (!m) {
+    const m3 = s.match(/^(.+\S)\s+([\d,\s\u2013-]+)$/);
+    if (!m3) return null;
+    const potO = FR_TO_OSIS[stripAccents(m3[1])];
+    if (!potO || !SINGLE_CHAPTER_OSIS.has(potO)) return null;
+    book = m3[1]; chapter = 1; versesStr = m3[2];
+  } else {
     book = m[1]; chapter = parseInt(m[2], 10);
+    const potO2 = FR_TO_OSIS[stripAccents(book)];
+    if (potO2 && SINGLE_CHAPTER_OSIS.has(potO2)) { versesStr = String(chapter); chapter = 1; }
   }
   const osis = FR_TO_OSIS[stripAccents(book)];
   if (!osis) return null;
@@ -289,6 +299,9 @@ async function loadCrossRefIndex() {
 
 function formatFrRef(osisBook, chap1, v1, chap2, v2) {
   const fr = OSIS_TO_FR[osisBook] || osisBook;
+  if (SINGLE_CHAPTER_OSIS.has(osisBook)) {
+    return v1 === v2 ? fr+' '+v1 : fr+' '+v1+'-'+v2;
+  }
   if (chap1 === chap2) {
     return v1 === v2 ? `${fr} ${chap1}:${v1}` : `${fr} ${chap1}:${v1}-${v2}`;
   }
@@ -473,14 +486,22 @@ function parseXtRefs(raw) {
         if (osis) currentOsis = osis;
         chapter = parseInt(m[2], 10);
         versesStr = m[3];
-      } else if (currentOsis) {
-        const m2 = part.match(/^(\d+):\s*([\d,\s–-]+)/);
-        if (!m2) continue;
-        osis = currentOsis;
-        chapter = parseInt(m2[1], 10);
-        versesStr = m2[2];
       } else {
-        continue;
+        const m2 = currentOsis && part.match(/^(\d+):\s*([\d,\s\u2013-]+)/);
+        if (m2) {
+          osis = currentOsis;
+          chapter = parseInt(m2[1], 10);
+          versesStr = m2[2];
+        } else {
+          const msc = part.match(/^(\d\s?[A-Za-z\u00C0-\u00FF]+|[A-Za-z\u00C0-\u00FF]+)\s+([\d,\s\u2013-]+)$/);
+          if (msc) {
+            const ak2 = stripAccents(msc[1]).replace(/\s+/g,"");
+            const po = ABBREV_TO_OSIS[ak2];
+            if (po && SINGLE_CHAPTER_OSIS.has(po)) {
+              osis=po; currentOsis=osis; chapter=1; versesStr=msc[2];
+            } else { continue; }
+          } else { continue; }
+        }
       }
       if (!osis) continue;
       const ranges = mergeRanges(parseVerseList(versesStr));
@@ -495,6 +516,7 @@ function parseXtRefs(raw) {
 function formatFrRefRanges(osisBook, chapter, ranges) {
   const fr = OSIS_TO_FR[osisBook] || osisBook;
   const parts = ranges.map(r => r.verseStart === r.verseEnd ? `${r.verseStart}` : `${r.verseStart}-${r.verseEnd}`);
+  if (SINGLE_CHAPTER_OSIS.has(osisBook)) return fr+' '+parts.join(', ');
   return `${fr} ${chapter}:${parts.join(', ')}`;
 }
 
