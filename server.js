@@ -213,7 +213,7 @@ const EXTRA_ALIASES = {
   '1jn':'1John','1jean':'1John',
   '2jn':'2John','2jean':'2John',
   '3jn':'3John','3jean':'3John',
-  jude:'Jude',
+  jude:'Jude', jud:'Jude',
   ap:'Rev', apoc:'Rev', apocalypse:'Rev'
 };
 for (const [k, v] of Object.entries(EXTRA_ALIASES)) {
@@ -473,6 +473,7 @@ function mergeRanges(ranges) {
 // groupée — exactement comme elle est imprimée dans la Bible Segond — plutôt
 // que d'être éclatée en plusieurs cartes "preuves" séparées.
 function parseXtRefs(raw) {
+  raw = raw.replace(/ v\. /g, ' ');
   const refs = [];
   const segments = raw.split('.').map(s => s.trim()).filter(Boolean);
   for (const seg of segments) {
