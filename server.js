@@ -31,6 +31,33 @@ app.post('/api/messages', async (req, res) => {
     });
   }
 
+  // ── Mode pass-through Anthropic ────────────────────────────────────────────
+  if (process.env.USE_ANTHROPIC === 'true') {
+    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+    if (!ANTHROPIC_KEY) return res.status(500).json({ error: { message: 'ANTHROPIC_API_KEY manquante.' } });
+    try {
+      const aResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: req.body.model || 'claude-haiku-4-5-20251001',
+          max_tokens: req.body.max_tokens || 8192,
+          system: req.body.system,
+          messages: req.body.messages
+        })
+      });
+      const aData = await aResp.json();
+      if (!aResp.ok) return res.status(aResp.status).json({ error: { message: aData.error?.message || 'Erreur Anthropic' } });
+      return res.json(aData);
+    } catch (err) {
+      return res.status(500).json({ error: { message: 'Erreur proxy Anthropic : ' + err.message } });
+    }
+  }
+
   try {
     // ── Traduction format Anthropic → Gemini ──────────────────────────────────
     const { system, messages = [], max_tokens } = req.body;
