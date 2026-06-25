@@ -213,7 +213,7 @@ const EXTRA_ALIASES = {
   '1jn':'1John','1jean':'1John',
   '2jn':'2John','2jean':'2John',
   '3jn':'3John','3jean':'3John',
-  jude:'Jude', jud:'Jude',
+  jude:'Jude',
   ap:'Rev', apoc:'Rev', apocalypse:'Rev'
 };
 for (const [k, v] of Object.entries(EXTRA_ALIASES)) {
@@ -435,7 +435,7 @@ const ABBREV_TO_OSIS = {
   mt:'Matt', mc:'Mark', lu:'Luke', jn:'John', ac:'Acts', ro:'Rom', '1co':'1Cor', '2co':'2Cor',
   ga:'Gal', ep:'Eph', ph:'Phil', col:'Col', '1th':'1Thess', '2th':'2Thess', '1ti':'1Tim', '2ti':'2Tim',
   tit:'Titus', phm:'Phlm', he:'Heb', ja:'Jas', '1pi':'1Pet', '2pi':'2Pet',
-  '1jn':'1John', '2jn':'2John', '3jn':'3John', jude:'Jude', ap:'Rev'
+  '1jn':'1John', '2jn':'2John', '3jn':'3John', jude:'Jude', jud:'Jude', ap:'Rev'
 };
 
 // Découpe une liste de versets façon "9-20" ou "9, 10" ou "9-11, 15" en
