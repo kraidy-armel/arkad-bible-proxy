@@ -677,15 +677,18 @@ async function loadLsgIndex() {
     const sectionIdx = new Map();
     const results = await Promise.all(LSG_BOOKS.map(async ([num, , usfm3]) => {
       const url = `${LSG_BASE_URL}${num}-${usfm3}.p.sfm`;
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) { console.error(`LSG: échec ${usfm3} (${resp.status})`); return null; }
-        const text = await resp.text();
-        return parseSfmFile(text, usfm3);
-      } catch (e) {
-        console.error(`LSG: erreur ${usfm3}: ${e.message}`);
-        return null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) { console.error(`LSG: échec ${usfm3} (${resp.status})`); return null; }
+          const text = await resp.text();
+          return parseSfmFile(text, usfm3);
+        } catch (e) {
+          console.error(`LSG: erreur ${usfm3} (tentative ${attempt}/3): ${e.message}`);
+          if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
+        }
       }
+      return null;
     }));
     for (const book of results) {
       if (!book) continue;
@@ -805,4 +808,6 @@ app.get('/api/classify-ref', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Proxy EFBC Mission God en écoute sur le port ${PORT}`);
+  // Pré-charge l'index LSG dès le démarrage pour éviter les échecs au démarrage à froid
+  loadLsgIndex().then(() => console.log('LSG1910 pré-chargé avec succès.')).catch(err => console.error('Pré-chargement LSG échoué (sera retenté à la 1re requête):', err.message));
 });
