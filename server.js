@@ -501,7 +501,14 @@ function parseXtRefs(raw) {
             const po = ABBREV_TO_OSIS[ak2];
             if (po && SINGLE_CHAPTER_OSIS.has(po)) {
               osis=po; currentOsis=osis; chapter=1; versesStr=msc[2];
-            } else { continue; }
+            } else {
+              const chap = parseInt(msc[2].trim(), 10);
+              if (!isNaN(chap) && msc[2].trim() === String(chap)) {
+                refs.push({ osis: po, chapter: chap, ranges: [] });
+                currentOsis = po;
+              }
+              continue;
+            }
           } else { continue; }
         }
       }
@@ -519,6 +526,7 @@ function formatFrRefRanges(osisBook, chapter, ranges) {
   const fr = OSIS_TO_FR[osisBook] || osisBook;
   const parts = ranges.map(r => r.verseStart === r.verseEnd ? `${r.verseStart}` : `${r.verseStart}-${r.verseEnd}`);
   if (SINGLE_CHAPTER_OSIS.has(osisBook)) return fr+' '+parts.join(', ');
+  if (!ranges.length) return `${fr} ${chapter}`;
   return `${fr} ${chapter}:${parts.join(', ')}`;
 }
 
