@@ -67,9 +67,9 @@ html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:
 .input-screen{padding:20px 16px 100px}
 .input-hero{text-align:center;margin-bottom:22px;padding:20px 10px}
 .cross-icon{font-size:44px;margin-bottom:10px;color:var(--gold)}
-.brand-logo{width:44px;height:50px;display:inline-block;vertical-align:middle;margin-bottom:10px}
-.brand-logo-sm{width:18px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px}
-.brand-logo-lg{width:54px;height:61px}
+.brand-logo{width:48px;height:48px;object-fit:contain;display:inline-block;vertical-align:middle;margin-bottom:10px}
+.brand-logo-sm{width:24px;height:24px;object-fit:contain;display:inline-block;vertical-align:middle;margin-right:6px;border-radius:6px}
+.brand-logo-lg{width:66px;height:66px}
 .input-hero-title{font-size:22px;font-weight:700;color:var(--accent);margin-bottom:6px;font-family:Georgia,serif}
 .input-hero-sub{font-size:13px;color:var(--ink3);line-height:1.55}
 .input-card{background:var(--surface);border:0.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(30,58,138,0.06)}
@@ -334,19 +334,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:
   <div class="status-bar">
     <span id="clockDisplay">9:41</span>
     <span style="font-weight:700;letter-spacing:1px;display:flex;align-items:center">
-      <svg class="brand-logo-sm" viewBox="0 0 300 340" xmlns="http://www.w3.org/2000/svg">
-        <rect x="6" y="6" width="288" height="328" rx="40" fill="#1e3a8a" stroke="#c9a227" stroke-width="10"/>
-        <g fill="#e8c84d">
-          <path d="M150 104 C140 104 134 116 135 140 C137 178 143 212 150 244 C157 212 163 178 165 140 C166 116 160 104 150 104 Z"/>
-          <path d="M137 128 C98 120 58 132 28 166 C70 160 94 166 112 182 C84 188 64 202 50 228 C92 214 120 216 140 230 C140 196 139 162 137 128 Z"/>
-          <path d="M163 128 C202 120 242 132 272 166 C230 160 206 166 188 182 C216 188 236 202 250 228 C208 214 180 216 160 230 C160 196 161 162 163 128 Z"/>
-          <path d="M135 242 L150 298 L165 242 C159 250 141 250 135 242 Z"/>
-          <circle cx="150" cy="92" r="22"/>
-        </g>
-        <path d="M150 100 l20 8 -20 10 z" fill="#f4c530"/>
-        <circle cx="158" cy="86" r="4" fill="#0ea5e9"/>
-        <rect x="116" y="302" width="68" height="15" rx="7.5" fill="#c0392b"/>
-      </svg>
+      <img class="brand-logo-sm" src="peniel-aigle.png" alt="PÉNIEL" />
       PÉNIEL
     </span>
     <span id="dateDisplay"></span>
@@ -373,19 +361,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:
   <div class="screen active" id="screen-input">
     <div class="input-screen">
       <div class="input-hero">
-        <svg class="brand-logo brand-logo-lg" viewBox="0 0 300 340" xmlns="http://www.w3.org/2000/svg">
-          <rect x="6" y="6" width="288" height="328" rx="40" fill="#1e3a8a" stroke="#c9a227" stroke-width="10"/>
-          <g fill="#e8c84d">
-            <path d="M150 104 C140 104 134 116 135 140 C137 178 143 212 150 244 C157 212 163 178 165 140 C166 116 160 104 150 104 Z"/>
-            <path d="M137 128 C98 120 58 132 28 166 C70 160 94 166 112 182 C84 188 64 202 50 228 C92 214 120 216 140 230 C140 196 139 162 137 128 Z"/>
-            <path d="M163 128 C202 120 242 132 272 166 C230 160 206 166 188 182 C216 188 236 202 250 228 C208 214 180 216 160 230 C160 196 161 162 163 128 Z"/>
-            <path d="M135 242 L150 298 L165 242 C159 250 141 250 135 242 Z"/>
-            <circle cx="150" cy="92" r="22"/>
-          </g>
-          <path d="M150 100 l20 8 -20 10 z" fill="#f4c530"/>
-          <circle cx="158" cy="86" r="4" fill="#0ea5e9"/>
-          <rect x="116" y="302" width="68" height="15" rx="7.5" fill="#c0392b"/>
-        </svg>
+        <img class="brand-logo brand-logo-lg" src="peniel-aigle.png" alt="PÉNIEL" />
         <div class="input-hero-title">PÉNIEL — Étude biblique</div>
         <div class="input-hero-sub">Saisissez une péricope biblique et l'IA génère l'étude complète — Pensée, Preuves, 4 Périodes, Volonté de Dieu et Exhortation quotidienne</div>
       </div>
@@ -1358,7 +1334,7 @@ function showModal(ref,texte){
 }
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
 // ── PWA MANIFEST (inline) ──
-const EAGLE_ICON='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 340"><rect x="6" y="6" width="288" height="328" rx="40" fill="%231e3a8a" stroke="%23c9a227" stroke-width="10"/><g fill="%23e8c84d"><path d="M150 104 C140 104 134 116 135 140 C137 178 143 212 150 244 C157 212 163 178 165 140 C166 116 160 104 150 104 Z"/><path d="M137 128 C98 120 58 132 28 166 C70 160 94 166 112 182 C84 188 64 202 50 228 C92 214 120 216 140 230 C140 196 139 162 137 128 Z"/><path d="M163 128 C202 120 242 132 272 166 C230 160 206 166 188 182 C216 188 236 202 250 228 C208 214 180 216 160 230 C160 196 161 162 163 128 Z"/><path d="M135 242 L150 298 L165 242 C159 250 141 250 135 242 Z"/><circle cx="150" cy="92" r="22"/></g><path d="M150 100 l20 8 -20 10 z" fill="%23f4c530"/><circle cx="158" cy="86" r="4" fill="%230ea5e9"/><rect x="116" y="302" width="68" height="15" rx="7.5" fill="%23c0392b"/></svg>';
+const EAGLE_ICON='peniel-aigle.png';
 const manifest={
   name:'PÉNIEL — Étude biblique',
   short_name:'PÉNIEL',
@@ -1369,8 +1345,8 @@ const manifest={
   theme_color:'#1e3a8a',
   orientation:'portrait',
   icons:[
-    {src:EAGLE_ICON,sizes:'192x192',type:'image/svg+xml'},
-    {src:EAGLE_ICON,sizes:'512x512',type:'image/svg+xml'}
+    {src:EAGLE_ICON,sizes:'512x512',type:'image/png',purpose:'any'},
+    {src:EAGLE_ICON,sizes:'192x192',type:'image/png',purpose:'any'}
   ]
 };
 const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
