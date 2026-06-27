@@ -110,6 +110,13 @@ html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:
 }
 .loading-screen.show{display:flex}
 .loading-cross{font-size:48px;color:var(--gold);margin-bottom:16px;animation:pulse 1.5s ease-in-out infinite}
+.loading-eagle{width:96px;height:96px;object-fit:contain;margin-bottom:18px;animation:floaty 2.6s ease-in-out infinite;filter:drop-shadow(0 6px 14px rgba(30,58,138,0.25))}
+@keyframes floaty{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-9px) scale(1.05)}}
+.loading-tip{margin-top:18px;font-size:12.5px;color:var(--ink3);font-style:italic;min-height:36px;max-width:320px;text-align:center;line-height:1.55;transition:opacity 0.3s}
+.lstep.s-active{color:var(--accent);font-weight:700}
+.lstep.s-active .lstep-icon{animation:pulse 1s infinite}
+.lstep.s-done{color:var(--green)}
+.lstep.s-done .lstep-icon{color:var(--green)}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.95)}}
 .loading-title{font-size:18px;font-weight:700;color:var(--accent);margin-bottom:6px;font-family:Georgia,serif}
 .loading-ref{font-size:13px;color:var(--ink3);margin-bottom:22px;font-style:italic}
@@ -400,9 +407,16 @@ html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:
   </div>
   <!-- SCREEN: LOADING (not a tab, shown/hidden) -->
   <div class="loading-screen" id="loadingScreen">
-    <div class="loading-cross">✝</div>
+    <img class="loading-eagle" src="peniel-aigle.png" alt="" />
     <div class="loading-title">Étude en cours…</div>
     <div class="loading-ref" id="loadingRef">Jean 10:11-16</div>
+    <div class="loading-steps" id="loadingSteps">
+      <div class="lstep"><span class="lstep-icon">🔗</span><span>Recherche des références croisées</span></div>
+      <div class="lstep"><span class="lstep-icon">🕊</span><span>Lecture du texte Louis Segond 1910</span></div>
+      <div class="lstep"><span class="lstep-icon">📚</span><span>Analyse des 4 périodes</span></div>
+      <div class="lstep"><span class="lstep-icon">👑</span><span>Volonté de Dieu &amp; exhortation</span></div>
+    </div>
+    <div class="loading-tip" id="loadingTip"></div>
   </div>
   <!-- SCREEN: STUDY -->
   <div class="screen" id="screen-study">
@@ -591,6 +605,34 @@ async function regenererAvecPensee(){
   const titre=currentStudy.titre||'';
   await genererEtude(ref,titre,newRef);
 }
+// ── Animation de l'écran de chargement (étapes + messages qui défilent) ──
+let loadingTimer=null;
+const LOADING_TIPS=[
+  '« Ils prennent leur vol comme les aigles. » (Ésaïe 40:31)',
+  'Recherche des meilleures références à travers toute l’Écriture…',
+  'Le texte affiché est tiré mot pour mot de la Bible Louis Segond 1910.',
+  'Au tout premier lancement, le serveur peut mettre ~30 s à se réveiller.',
+  'Répartition des textes selon les 4 périodes : histoire, loi, prophétie, poésie.',
+  'Rédaction de la Pensée, de la Volonté de Dieu et de l’exhortation…'
+];
+function startLoadingAnim(){
+  stopLoadingAnim();
+  const steps=Array.prototype.slice.call(document.querySelectorAll('#loadingSteps .lstep'));
+  const tipEl=document.getElementById('loadingTip');
+  let i=0,t=0;
+  const tick=()=>{
+    steps.forEach((s,idx)=>{
+      s.classList.toggle('s-active',idx===i);
+      s.classList.toggle('s-done',idx<i);
+      s.classList.toggle('s-wait',idx>i);
+    });
+    if(tipEl)tipEl.textContent=LOADING_TIPS[t%LOADING_TIPS.length];
+    i=(i+1)%steps.length; t++;
+  };
+  tick();
+  loadingTimer=setInterval(tick,2600);
+}
+function stopLoadingAnim(){ if(loadingTimer){clearInterval(loadingTimer);loadingTimer=null;} }
 async function genererEtude(ref,titre,forcedPenseeRef){
   if(!ref){
     document.getElementById('pericInput').focus();
@@ -601,6 +643,7 @@ async function genererEtude(ref,titre,forcedPenseeRef){
   document.getElementById('analyseBtn').disabled=true;
   document.getElementById('loadingRef').textContent=ref+(titre?' — '+titre:'');
   document.getElementById('loadingScreen').classList.add('show');
+  startLoadingAnim();
   ['input','study','saved'].forEach(id=>document.getElementById('screen-'+id).classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   // Récupère les vraies références croisées (OpenBible.info) avant de construire le prompt,
@@ -919,11 +962,13 @@ EXHORTATION QUOTIDIENNE ("exhortation") : rédige une exhortation courte, vivant
     study._requestedRef=ref;
     currentStudy=study;
     setTimeout(()=>{
+      stopLoadingAnim();
       document.getElementById('loadingScreen').classList.remove('show');
       document.getElementById('analyseBtn').disabled=false;
       showScreen('study');
     },300);
   }catch(err){
+    stopLoadingAnim();
     document.getElementById('loadingScreen').classList.remove('show');
     document.getElementById('analyseBtn').disabled=false;
     document.getElementById('studyContent').innerHTML=`
@@ -1265,24 +1310,59 @@ async function saveStudy(){
   btn.textContent='✓ Enregistrée !';
   setTimeout(()=>btn.textContent='🔖 Enregistrer',1500);
 }
-// ── SHARE ──
+// ── SHARE — étude COMPLÈTE ──
 function shareStudy(){
   if(!currentStudy)return;
-  const n=studyNotes[currentStudy.reference]||'';
-  const preuves=(currentStudy.preuves||[]).map(p=>'• '+p.ref).join('\n');
-  const text=
-    '🦅 PÉNIEL — ÉTUDE BIBLIQUE\n\n'+
-    '📖 '+( currentStudy.titre||currentStudy.reference)+' ('+currentStudy.reference+')\n\n'+
-    '✨ LA PENSÉE :\n"'+currentStudy.pensee?.texte+'"\n— '+currentStudy.pensee?.ref+'\n\n'+
-    '🔗 PREUVES PÉRICOPE :\n'+preuves+'\n\n'+
-    '👑 VOLONTÉ DE DIEU ('+currentStudy.volonte?.type+') :\n"'+currentStudy.volonte?.texte+'"\n— '+currentStudy.volonte?.ref+
-    (n?'\n\n📝 NOTES :\n'+n:'')+
-    '\n\n— PÉNIEL · Étude biblique';
+  const s=currentStudy;
+  const n=studyNotes[s.reference]||'';
+  const P_CFG={histoire:'🕰 HISTOIRE',loi:'⚖️ LOI',prophetie:'👁 PROPHÉTIE',poesie:'🎶 POÉSIE'};
+  const txtPeriodes=(periodes)=>{
+    if(!periodes)return'';
+    let out='';
+    ['histoire','loi','prophetie','poesie'].forEach(k=>{
+      const pd=periodes[k]; if(!pd)return;
+      out+='\n'+P_CFG[k]+(pd.angle?' — '+pd.angle:'')+'\n';
+      const zone=(arr)=>{(Array.isArray(arr)?arr:[]).forEach(it=>{
+        if(!it||!it.ref)return;
+        out+='  • '+it.ref+(it.texte?' : « '+it.texte+' »':'')+'\n';
+        if(it.lien)out+='     → '+it.lien+'\n';
+      });};
+      zone(pd.at); zone(pd.nt);
+    });
+    return out;
+  };
+  let t='🦅 PÉNIEL — ÉTUDE BIBLIQUE\n';
+  t+='📖 '+(s.titre||s.reference)+' ('+s.reference+')\n';
+  t+='🕊 Louis Segond 1910\n';
+  if(s.resume)t+='\n📋 RÉSUMÉ\n'+s.resume+'\n';
+  if(s.pensee){
+    t+='\n✨ LA PENSÉE\n« '+(s.pensee.texte||'')+' » — '+(s.pensee.ref||'')+'\n';
+    if(s.pensee.commentaire)t+=s.pensee.commentaire+'\n';
+  }
+  if(s.preuves&&s.preuves.length){
+    t+='\n🔗 PREUVES\n';
+    s.preuves.forEach(p=>{ if(p&&p.ref)t+='• '+p.ref+(p.texte?' : « '+p.texte+' »':'')+'\n'; });
+  }
+  if(s.periodes)t+='\n📚 TEXTES D’EXPLICATION — 4 PÉRIODES\n'+txtPeriodes(s.periodes);
+  if(s.volonte){
+    t+='\n👑 LA VOLONTÉ DE DIEU'+(s.volonte.type?' ('+s.volonte.type+')':'')+'\n';
+    t+='« '+(s.volonte.texte||'')+' » — '+(s.volonte.ref||'')+'\n';
+    if(s.volonte.explication)t+=s.volonte.explication+'\n';
+    if(s.volonte.periodes)t+=txtPeriodes(s.volonte.periodes);
+  }
+  if(s.exhortation){
+    const ex=s.exhortation, recit=(ex.recit||'').trim();
+    t+='\n🦅 EXHORTATION QUOTIDIENNE\n';
+    if(ex.personnage)t+='✦ '+ex.personnage+'\n';
+    if(recit)t+=recit+'\n';
+  }
+  if(n)t+='\n📝 NOTES\n'+n+'\n';
+  t+='\n— PÉNIEL · Étude biblique';
   if(navigator.share){
-    navigator.share({title:currentStudy.titre||currentStudy.reference,text});
+    navigator.share({title:s.titre||s.reference,text:t}).catch(()=>{});
   }else{
-    try{navigator.clipboard.writeText(text);alert('✓ Étude copiée dans le presse-papier !')}
-    catch(e){alert(text)}
+    try{navigator.clipboard.writeText(t);alert('✓ Étude complète copiée dans le presse-papier !')}
+    catch(e){alert(t)}
   }
 }
 // ── EXHORTATION : texte partageable + partage ──
