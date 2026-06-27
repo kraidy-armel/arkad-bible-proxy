@@ -28,15 +28,24 @@ app.use(express.json({ limit: '2mb' }));
 // Les quotas étant indépendants, l'app reste opérationnelle quasi en permanence.
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
+
+// Listes de modèles essayés DANS L'ORDRE (séparés par des virgules). Les modèles
+// :free d'OpenRouter tombent parfois en panne en amont ("Provider returned
+// error") : on en essaie donc plusieurs jusqu'à ce que l'un réponde. Un modèle
+// inexistant ou en échec est simplement ignoré, on passe au suivant.
+const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS || process.env.OPENROUTER_MODEL ||
+  'deepseek/deepseek-chat-v3-0324:free,meta-llama/llama-3.3-70b-instruct:free,google/gemini-2.0-flash-exp:free,meta-llama/llama-3.1-70b-instruct:free,qwen/qwen-2.5-72b-instruct:free,mistralai/mistral-small-3.2-24b-instruct:free'
+).split(',').map(s => s.trim()).filter(Boolean);
+const GROQ_MODELS = (process.env.GROQ_MODELS || process.env.GROQ_MODEL ||
+  'llama-3.3-70b-versatile,llama-3.1-8b-instant'
+).split(',').map(s => s.trim()).filter(Boolean);
 
 const PROVIDERS = [
   {
     name: 'openrouter',
     enabled: () => !!OPENROUTER_API_KEY,
     url: 'https://openrouter.ai/api/v1/chat/completions',
-    model: OPENROUTER_MODEL,
+    models: OPENROUTER_MODELS,
     headers: () => ({
       'Authorization': 'Bearer ' + OPENROUTER_API_KEY,
       'HTTP-Referer': 'https://kraidy-armel.github.io/arkad-bible/',
@@ -47,10 +56,21 @@ const PROVIDERS = [
     name: 'groq',
     enabled: () => !!GROQ_API_KEY,
     url: 'https://api.groq.com/openai/v1/chat/completions',
-    model: GROQ_MODEL,
+    models: GROQ_MODELS,
     headers: () => ({ 'Authorization': 'Bearer ' + GROQ_API_KEY })
   }
 ];
+
+// Aplatis la liste des tentatives : pour chaque fournisseur activé, un essai
+// par modèle, dans l'ordre.
+function buildAttempts() {
+  const out = [];
+  for (const p of PROVIDERS) {
+    if (!p.enabled()) continue;
+    for (const model of p.models) out.push({ name: p.name, url: p.url, model, headers: p.headers });
+  }
+  return out;
+}
 
 // Construit le tableau de messages OpenAI à partir du format Anthropic envoyé
 // par index.html ({ system, messages:[{role, content}] }).
@@ -66,13 +86,13 @@ function toOpenAiMessages(system, messages) {
   return out;
 }
 
-// Appelle un fournisseur OpenAI-compatible et renvoie le texte généré.
-async function callProvider(provider, oaMessages, maxTokens) {
-  const resp = await fetch(provider.url, {
+// Tente UN modèle d'un fournisseur OpenAI-compatible et renvoie le texte généré.
+async function callAttempt(att, oaMessages, maxTokens) {
+  const resp = await fetch(att.url, {
     method: 'POST',
-    headers: Object.assign({ 'Content-Type': 'application/json' }, provider.headers()),
+    headers: Object.assign({ 'Content-Type': 'application/json' }, att.headers()),
     body: JSON.stringify({
-      model: provider.model,
+      model: att.model,
       messages: oaMessages,
       // On plafonne la sortie à 8192 (le JSON d'étude tient dans cette taille,
       // comme c'était déjà le cas sous Gemini) pour rester sous les limites
@@ -84,35 +104,44 @@ async function callProvider(provider, oaMessages, maxTokens) {
 
   let data;
   try { data = await resp.json(); }
-  catch (e) { throw new Error('Réponse non-JSON (HTTP ' + resp.status + ')'); }
+  catch (e) { throw new Error('réponse non-JSON (HTTP ' + resp.status + ')'); }
 
   if (!resp.ok) {
-    const msg = (data && data.error && (data.error.message || data.error)) || ('HTTP ' + resp.status);
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    let msg = 'HTTP ' + resp.status;
+    if (data && data.error) {
+      msg = data.error.message || msg;
+      const meta = data.error.metadata;
+      const raw = meta && (meta.raw || meta.reasons);
+      if (raw) msg += ' — ' + (typeof raw === 'string' ? raw : JSON.stringify(raw));
+    }
+    throw new Error(msg);
   }
 
   const choice = data.choices && data.choices[0];
   const text = choice && choice.message ? (choice.message.content || '') : '';
-  if (!text) throw new Error('Réponse vide du fournisseur ' + provider.name);
+  if (!text) {
+    const fr = choice && choice.finish_reason ? ' (finish_reason=' + choice.finish_reason + ')' : '';
+    throw new Error('réponse vide' + fr);
+  }
   return text;
 }
 
 // Route de vérification
 app.get('/', (req, res) => {
-  const active = PROVIDERS.filter(p => p.enabled()).map(p => p.name + ' (' + p.model + ')');
-  const txt = active.length
-    ? 'Fournisseurs actifs : ' + active.join(' → ')
-    : 'Aucune clé configurée — ajoutez GROQ_API_KEY (et éventuellement OPENROUTER_API_KEY) dans Render.';
+  const atts = buildAttempts();
+  const txt = atts.length
+    ? "Modèles essayés dans l'ordre : " + atts.map(a => a.name + '/' + a.model).join(' → ')
+    : 'Aucune clé configurée — ajoutez OPENROUTER_API_KEY (ou GROQ_API_KEY) dans Render.';
   res.send('✅ PÉNIEL — proxy IA en ligne. ' + txt);
 });
 
 // Route appelée par index.html — accepte le format Anthropic, répond en format
-// Anthropic. En interne, route vers Groq puis OpenRouter (fallback automatique).
+// Anthropic. En interne, essaie chaque modèle gratuit jusqu'à obtenir une réponse.
 app.post('/api/messages', async (req, res) => {
-  const active = PROVIDERS.filter(p => p.enabled());
-  if (!active.length) {
+  const attempts = buildAttempts();
+  if (!attempts.length) {
     return res.status(500).json({
-      error: { message: "Aucune clé IA configurée. Ajoutez GROQ_API_KEY (et éventuellement OPENROUTER_API_KEY) dans les variables d'environnement Render." }
+      error: { message: "Aucune clé IA configurée. Ajoutez OPENROUTER_API_KEY (ou GROQ_API_KEY) dans les variables d'environnement Render." }
     });
   }
 
@@ -120,23 +149,23 @@ app.post('/api/messages', async (req, res) => {
   const oaMessages = toOpenAiMessages(system, messages);
 
   const errors = [];
-  for (const provider of active) {
+  for (const att of attempts) {
     try {
-      const text = await callProvider(provider, oaMessages, max_tokens);
+      const text = await callAttempt(att, oaMessages, max_tokens);
       return res.json({
         content: [{ type: 'text', text }],
-        model: provider.name + ':' + provider.model,
+        model: att.name + ':' + att.model,
         stop_reason: 'end_turn'
       });
     } catch (err) {
-      console.error('Fournisseur ' + provider.name + ' en échec : ' + err.message);
-      errors.push(provider.name + ': ' + err.message);
-      // on passe au fournisseur suivant (fallback)
+      console.error('Échec ' + att.name + '/' + att.model + ' : ' + err.message);
+      errors.push(att.name + '/' + att.model + ': ' + err.message);
+      // on passe au modèle suivant (fallback)
     }
   }
 
   res.status(502).json({
-    error: { message: 'Tous les fournisseurs IA ont échoué. ' + errors.join(' | ') }
+    error: { message: 'Tous les modèles IA ont échoué. ' + errors.join(' | ') }
   });
 });
 
