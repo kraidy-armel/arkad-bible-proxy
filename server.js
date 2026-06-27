@@ -5,12 +5,13 @@
 // sans modifier index.html.
 //
 // Variables d'environnement Render à configurer :
-//   OPENROUTER_API_KEY  (recommandé)   clé gratuite https://openrouter.ai (login Google/GitHub)
+//   GITHUB_TOKEN        (recommandé)   jeton GitHub (permission « Models: read ») → GitHub Models, gratuit
+//   OPENROUTER_API_KEY  (optionnel)    clé gratuite https://openrouter.ai → fallback
 //   GROQ_API_KEY        (optionnel)    clé gratuite https://console.groq.com → fallback
-//   OPENROUTER_MODEL    (optionnel)    défaut : meta-llama/llama-3.3-70b-instruct:free
-//   GROQ_MODEL          (optionnel)    défaut : llama-3.3-70b-versatile
-// Il suffit d'UNE seule clé pour que l'app fonctionne. On essaie les
-// fournisseurs dans l'ordre ci-dessous et on bascule au suivant en cas d'échec.
+//   GITHUB_MODELS       (optionnel)    défaut : openai/gpt-4o-mini,openai/gpt-4o
+//   OPENROUTER_MODELS / GROQ_MODELS    (optionnel)  listes de slugs séparées par des virgules
+// Il suffit d'UNE seule clé pour que l'app fonctionne. On essaie GitHub Models,
+// puis OpenRouter, puis Groq, en basculant au suivant à chaque échec.
 
 const express = require('express');
 const cors = require('cors');
@@ -26,15 +27,17 @@ app.use(express.json({ limit: '2mb' }));
 // On essaie chaque fournisseur dans l'ordre ; si l'un échoue (erreur réseau,
 // quota atteint, réponse vide), on bascule automatiquement sur le suivant.
 // Les quotas étant indépendants, l'app reste opérationnelle quasi en permanence.
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GH_MODELS_TOKEN;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-// Listes de modèles essayés DANS L'ORDRE (séparés par des virgules). Les modèles
-// :free d'OpenRouter tombent parfois en panne en amont ("Provider returned
-// error") : on en essaie donc plusieurs jusqu'à ce que l'un réponde. Un modèle
-// inexistant ou en échec est simplement ignoré, on passe au suivant.
+// Listes de modèles essayés DANS L'ORDRE (séparés par des virgules). On essaie
+// chaque modèle jusqu'à ce que l'un réponde ; un modèle inexistant, saturé ou
+// en échec est simplement ignoré, on passe au suivant.
+const GITHUB_MODELS = (process.env.GITHUB_MODELS || 'openai/gpt-4o-mini,openai/gpt-4o')
+  .split(',').map(s => s.trim()).filter(Boolean);
 const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS || process.env.OPENROUTER_MODEL ||
-  'nvidia/nemotron-3-ultra-550b-a55b:free,meta-llama/llama-3.3-70b-instruct:free,nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,nex-agi/nex-n2-pro:free'
+  'meta-llama/llama-3.3-70b-instruct:free,nvidia/nemotron-3-ultra-550b-a55b:free'
 ).split(',').map(s => s.trim()).filter(Boolean);
 const GROQ_MODELS = (process.env.GROQ_MODELS || process.env.GROQ_MODEL ||
   'llama-3.3-70b-versatile,llama-3.1-8b-instant'
@@ -42,10 +45,21 @@ const GROQ_MODELS = (process.env.GROQ_MODELS || process.env.GROQ_MODEL ||
 
 const PROVIDERS = [
   {
+    // GitHub Models — gratuit via un jeton GitHub. Plafond de sortie ~4000 tokens
+    // par requête sur le palier gratuit, d'où maxOut.
+    name: 'github',
+    enabled: () => !!GITHUB_TOKEN,
+    url: process.env.GITHUB_MODELS_URL || 'https://models.github.ai/inference/chat/completions',
+    models: GITHUB_MODELS,
+    maxOut: 4000,
+    headers: () => ({ 'Authorization': 'Bearer ' + GITHUB_TOKEN })
+  },
+  {
     name: 'openrouter',
     enabled: () => !!OPENROUTER_API_KEY,
     url: 'https://openrouter.ai/api/v1/chat/completions',
     models: OPENROUTER_MODELS,
+    maxOut: 8192,
     headers: () => ({
       'Authorization': 'Bearer ' + OPENROUTER_API_KEY,
       'HTTP-Referer': 'https://kraidy-armel.github.io/arkad-bible/',
@@ -57,6 +71,7 @@ const PROVIDERS = [
     enabled: () => !!GROQ_API_KEY,
     url: 'https://api.groq.com/openai/v1/chat/completions',
     models: GROQ_MODELS,
+    maxOut: 8192,
     headers: () => ({ 'Authorization': 'Bearer ' + GROQ_API_KEY })
   }
 ];
@@ -67,7 +82,7 @@ function buildAttempts() {
   const out = [];
   for (const p of PROVIDERS) {
     if (!p.enabled()) continue;
-    for (const model of p.models) out.push({ name: p.name, url: p.url, model, headers: p.headers });
+    for (const model of p.models) out.push({ name: p.name, url: p.url, model, maxOut: p.maxOut || 8192, headers: p.headers });
   }
   return out;
 }
@@ -97,7 +112,7 @@ async function callAttempt(att, oaMessages, maxTokens) {
       // On plafonne la sortie à 8192 (le JSON d'étude tient dans cette taille,
       // comme c'était déjà le cas sous Gemini) pour rester sous les limites
       // tokens/minute des paliers gratuits.
-      max_tokens: Math.min(maxTokens || 8192, 8192),
+      max_tokens: Math.min(maxTokens || 8192, att.maxOut || 8192),
       temperature: 0.3
     })
   });
