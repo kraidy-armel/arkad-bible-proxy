@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PÉNIEL">
+<title>PÉNIEL — Étude biblique</title>
+<link rel="manifest" href="#" id="manifestLink">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --parch:#eef2fb;--ink:#0f1a3a;--ink2:#39456b;--ink3:#7480a0;
+  --gold:#c9a227;--gold-light:#f5e7b0;
+  --scroll:#e3e9f7;--accent:#1e3a8a;--accent2:#2563eb;
+  --surface:#ffffff;--border:rgba(30,58,138,0.14);
+  --green:#15803d;--blue:#1e3a8a;
+  --royal:#1e3a8a;--sky:#0ea5e9;--red:#c0392b;--violet:#7c3aed;--yellow:#eab308;
+  --h-color:#c0392b;--l-color:#1e3a8a;--pr-color:#7c3aed;--po-color:#0284c7;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.app{
+  max-width:480px;height:100vh;height:100dvh;
+  background:var(--surface);
+  display:flex;flex-direction:column;
+  margin:0 auto;position:relative;overflow:hidden;
+}
+.status-bar{
+  background:var(--accent);
+  padding-top:var(--safe-top);
+  padding-left:20px;padding-right:20px;padding-bottom:4px;
+  display:flex;justify-content:space-between;align-items:center;
+  color:var(--gold-light);font-size:12px;font-weight:500;
+  flex-shrink:0;
+}
+.nav-bar{
+  background:var(--accent);
+  padding:10px 14px 12px;
+  display:flex;align-items:center;gap:8px;
+  flex-shrink:0;
+}
+.nav-title{flex:1;text-align:center;color:var(--gold-light);font-size:15px;font-weight:600;letter-spacing:0.3px}
+.nav-btn{
+  background:rgba(240,230,140,0.15);border:0.5px solid rgba(240,230,140,0.3);
+  border-radius:10px;padding:6px 10px;color:var(--gold-light);cursor:pointer;
+  font-size:16px;display:flex;align-items:center;min-width:36px;justify-content:center;
+}
+.nav-btn:active{background:rgba(240,230,140,0.3)}
+.tab-bar{
+  display:flex;background:var(--scroll);
+  border-bottom:0.5px solid var(--border);flex-shrink:0;
+}
+.tab{
+  flex:1;padding:10px 4px 8px;text-align:center;
+  font-size:10px;font-weight:600;color:var(--ink2);cursor:pointer;
+  border-bottom:2.5px solid transparent;letter-spacing:0.3px;
+}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--surface)}
+.tab i{display:block;font-size:18px;margin-bottom:2px}
+.screen{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;overscroll-behavior:contain}
+.screen.active{display:block}
+/* ── INPUT SCREEN ── */
+.input-screen{padding:20px 16px 100px}
+.input-hero{text-align:center;margin-bottom:22px;padding:20px 10px}
+.cross-icon{font-size:44px;margin-bottom:10px;color:var(--gold)}
+.brand-logo{width:44px;height:50px;display:inline-block;vertical-align:middle;margin-bottom:10px}
+.brand-logo-sm{width:18px;height:20px;display:inline-block;vertical-align:middle;margin-right:5px}
+.brand-logo-lg{width:54px;height:61px}
+.input-hero-title{font-size:22px;font-weight:700;color:var(--accent);margin-bottom:6px;font-family:Georgia,serif}
+.input-hero-sub{font-size:13px;color:var(--ink3);line-height:1.55}
+.input-card{background:var(--surface);border:0.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(30,58,138,0.06)}
+.field-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.9px;color:var(--ink3);margin-bottom:8px}
+.field-input{
+  width:100%;padding:12px 14px;
+  border:1px solid rgba(139,90,43,0.22);border-radius:10px;
+  font-size:16px;color:var(--ink);background:var(--parch);
+  font-family:Georgia,serif;outline:none;
+  -webkit-appearance:none;appearance:none;
+}
+.field-input:focus{border-color:var(--gold);background:#f5f8ff}
+.field-input::placeholder{color:var(--ink3);font-style:italic;font-family:inherit}
+.field-gap{height:12px}
+.analyse-btn{
+  width:100%;padding:14px;border-radius:12px;
+  background:var(--accent);color:var(--gold-light);
+  border:none;font-size:15px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  margin-top:14px;letter-spacing:0.3px;
+  box-shadow:0 2px 8px rgba(30,58,138,0.25);
+}
+.analyse-btn:active{transform:scale(0.98);opacity:0.9}
+.analyse-btn:disabled{opacity:0.45;cursor:not-allowed}
+.examples-section{margin-top:18px}
+.examples-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.9px;color:var(--ink3);margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  padding:7px 13px;border-radius:20px;border:0.5px solid var(--border);
+  font-size:12px;color:var(--accent);background:var(--parch);cursor:pointer;font-weight:500;
+}
+.chip:active{background:var(--scroll)}
+/* ── LOADING SCREEN ── */
+.loading-screen{
+  flex:1;padding:30px 20px;text-align:center;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--surface);
+}
+.loading-screen.show{display:flex}
+.loading-cross{font-size:48px;color:var(--gold);margin-bottom:16px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.95)}}
+.loading-title{font-size:18px;font-weight:700;color:var(--accent);margin-bottom:6px;font-family:Georgia,serif}
+.loading-ref{font-size:13px;color:var(--ink3);margin-bottom:22px;font-style:italic}
+.loading-steps{text-align:left;background:var(--parch);border-radius:14px;padding:14px 16px;width:100%;max-width:340px}
+.lstep{font-size:13px;color:var(--ink2);padding:7px 0;display:flex;align-items:center;gap:10px;border-bottom:0.5px solid var(--border)}
+.lstep:last-child{border-bottom:none}
+.lstep-icon{font-size:16px;min-width:20px;text-align:center}
+.s-done{color:var(--green)}
+.s-active{color:var(--gold);animation:pulse 1s infinite}
+.s-wait{color:var(--ink3);opacity:0.4}
+/* ── STUDY SCREEN ── */
+.study-header{padding:13px 15px 11px;background:var(--parch);border-bottom:0.5px solid var(--border)}
+.study-titre{font-size:18px;font-weight:700;color:var(--accent);font-family:Georgia,serif;margin-bottom:3px}
+.study-meta{font-size:11px;color:var(--ink3);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.saved-tag{font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(45,90,39,0.1);color:var(--green);border:0.5px solid rgba(45,90,39,0.25);font-weight:600}
+.study-body{padding:0 0 100px}
+.section{margin:10px 12px;border:0.5px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface)}
+.sec-head{
+  padding:11px 13px;background:var(--parch);
+  font-size:11px;font-weight:700;color:var(--ink2);
+  text-transform:uppercase;letter-spacing:0.8px;
+  display:flex;align-items:center;gap:7px;
+  border-bottom:0.5px solid var(--border);cursor:pointer;
+  user-select:none;-webkit-user-select:none;
+}
+.sec-head:active{background:var(--scroll)}
+.sec-tog{margin-left:auto;font-size:14px;color:var(--ink3);transition:transform 0.2s}
+.sec-body{padding:12px 13px}
+.sec-body.collapsed{display:none}
+.pensee-box{padding:14px;background:rgba(184,134,11,0.07);border-radius:11px;border:1px solid rgba(184,134,11,0.22)}
+.pensee-text{font-size:16px;font-family:Georgia,serif;color:var(--ink);line-height:1.75;font-style:italic}
+.pensee-ref{font-size:12px;color:var(--gold);font-weight:700;margin-top:8px}
+.pensee-adjust{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:0.5px dashed rgba(184,134,11,0.3)}
+.pensee-adjust-label{font-size:10.5px;color:var(--ink3);margin-bottom:6px}
+.pensee-adjust input{
+  flex:1;padding:8px 10px;border:1px solid rgba(139,90,43,0.25);border-radius:8px;
+  font-size:13px;background:var(--surface);color:var(--ink);
+}
+.pensee-adjust button{
+  padding:8px 12px;border-radius:8px;border:none;background:var(--accent);
+  color:var(--gold-light);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;
+}
+.requested-note{font-size:11px;color:var(--ink3);margin-top:4px;font-style:italic}
+.preuve-item{padding:9px 0;border-bottom:0.5px solid var(--border);display:flex;align-items:flex-start;gap:9px}
+.preuve-item:last-child{border-bottom:none}
+.preuve-ref{font-size:12px;color:var(--accent);font-weight:700;min-width:95px;padding-top:1px}
+.preuve-prev{font-size:12px;color:var(--ink2);line-height:1.5;flex:1}
+.eye-btn{background:none;border:1px solid rgba(184,134,11,0.25);border-radius:8px;color:var(--gold);cursor:pointer;font-size:16px;padding:4px 8px;flex-shrink:0}
+.eye-btn:active{background:rgba(184,134,11,0.1)}
+.pericope-verse{margin-bottom:7px;line-height:1.68;font-size:14px;color:var(--ink);padding:4px 6px;border-radius:6px}
+.pericope-verse.is-pensee{background:rgba(184,134,11,0.1);border-left:2.5px solid var(--gold);padding-left:10px}
+.vnum{font-size:10px;color:var(--gold);font-weight:700;vertical-align:super;margin-right:3px}
+.p-badge{font-size:9px;padding:1px 6px;border-radius:20px;background:rgba(184,134,11,0.15);color:var(--gold);margin-left:6px;font-weight:700}
+.periode-wrap{margin-bottom:10px;border:0.5px solid var(--border);border-radius:11px;overflow:hidden}
+.periode-head{padding:9px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.periode-head:active{opacity:0.8}
+.periode-lbl{font-size:12px;font-weight:700;flex:1}
+.periode-angle{font-size:9px;padding:3px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+.periode-tog{font-size:13px;color:var(--ink3);flex-shrink:0}
+.periode-body{padding:8px 10px 12px;display:none}
+.periode-body.open{display:block}
+.texte-card{margin-top:9px;padding:10px 11px;border-radius:10px;border:0.5px solid var(--border)}
+.texte-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:5px}
+.texte-ref-btn{
+  font-size:12px;font-weight:700;color:var(--accent);cursor:pointer;
+  display:flex;align-items:center;gap:4px;margin-bottom:5px;
+  background:none;border:none;padding:0;text-align:left;
+}
+.texte-content{font-size:13px;color:var(--ink);line-height:1.65;font-style:italic}
+.texte-lien{font-size:11px;color:var(--ink3);margin-top:7px;padding-top:7px;border-top:0.5px solid var(--border);line-height:1.55}
+.volonte-box{padding:13px;background:rgba(26,58,107,0.06);border-radius:11px;border:1px solid rgba(26,58,107,0.2);margin-bottom:11px}
+.volonte-text{font-size:14px;font-family:Georgia,serif;color:var(--ink);line-height:1.7;font-style:italic}
+.volonte-ref{font-size:12px;color:var(--blue);font-weight:700;margin-top:6px}
+.volonte-type-tag{font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(26,58,107,0.1);color:var(--blue);margin-top:5px;display:inline-block;font-weight:600}
+.volonte-expl{font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:12px;padding:10px 12px;background:var(--parch);border-radius:9px}
+.resume-box{font-size:13.5px;color:var(--ink2);line-height:1.65;padding:12px 13px;background:var(--parch);border-radius:9px;border:1px solid var(--border)}
+.pensee-expl{font-size:13px;color:var(--ink2);line-height:1.6;margin-top:12px;padding:10px 12px;background:var(--parch);border-radius:9px}
+.custom-add{margin-bottom:13px;padding:12px 13px;background:rgba(13,138,114,0.06);border:1px solid rgba(13,138,114,0.25);border-radius:11px}
+.custom-add-label{font-size:11.5px;color:var(--ink2);line-height:1.5;margin-bottom:8px}
+.custom-add-row{display:flex;gap:6px}
+.custom-add-row input{flex:1;padding:8px 10px;border:1px solid rgba(13,138,114,0.3);border-radius:8px;font-size:13px;background:var(--surface);color:var(--ink)}
+.custom-add-row button{padding:8px 12px;border-radius:8px;border:none;background:#0d8a72;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.custom-add-row button:disabled{opacity:0.6}
+.custom-add-msg{font-size:11.5px;margin-top:7px;line-height:1.5}
+.custom-add-msg.err{color:#c0392b}
+.texte-card.custom{border-left:3px solid #0d8a72;background:rgba(13,138,114,0.07)!important;position:relative}
+.texte-custom-tag{display:inline-block;font-size:9px;padding:2px 7px;border-radius:20px;background:#0d8a72;color:#fff;font-weight:700;margin-left:6px;letter-spacing:0.3px}
+.texte-del-btn{position:absolute;top:8px;right:9px;background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px;padding:2px 4px;line-height:1}
+.notes-ta{
+  width:100%;border:none;resize:none;font-size:14px;color:var(--ink);
+  background:transparent;line-height:1.65;min-height:100px;outline:none;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+}
+.notes-ta::placeholder{color:rgba(74,63,42,0.35)}
+.study-footer{
+  position:fixed;bottom:0;left:0;right:0;
+  max-width:480px;margin:0 auto;
+  padding:10px 13px calc(10px + var(--safe-bottom));
+  border-top:0.5px solid var(--border);
+  display:flex;gap:8px;background:var(--surface);z-index:10;
+}
+.fbtn{
+  flex:1;padding:11px 6px;border-radius:10px;
+  border:0.5px solid var(--border);background:var(--parch);color:var(--accent);
+  font-size:11px;cursor:pointer;text-align:center;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+}
+.fbtn.save{background:var(--accent);color:var(--gold-light);border-color:var(--accent)}
+.fbtn:active{opacity:0.8;transform:scale(0.97)}
+/* ── SAVED SCREEN ── */
+.saved-screen{padding:14px 13px 100px}
+.saved-hdr{font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.9px;margin-bottom:12px}
+.account-banner{margin-bottom:12px;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.5;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.account-banner.guest{background:rgba(184,134,11,0.08);border:1px solid rgba(184,134,11,0.25);color:var(--ink2)}
+.account-banner.logged{background:rgba(45,90,39,0.08);border:1px solid rgba(45,90,39,0.25);color:var(--ink2)}
+.account-banner button{padding:6px 10px;border-radius:7px;border:none;background:var(--accent);color:var(--gold-light);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.saved-empty{color:var(--ink2);font-size:14px;text-align:center;padding:30px 20px;line-height:1.6}
+.saved-item{
+  padding:13px 14px;border:0.5px solid var(--border);border-radius:12px;
+  margin-bottom:10px;background:var(--surface);cursor:pointer;
+}
+.saved-item:active{background:var(--parch)}
+.si-titre{font-size:14px;font-weight:700;color:var(--accent)}
+.si-ref{font-size:11px;color:var(--ink3);margin-top:1px}
+.si-pensee{font-size:12px;color:var(--ink2);margin-top:4px;font-style:italic}
+.si-meta{font-size:10px;color:var(--ink3);margin-top:5px;display:flex;gap:8px}
+/* ── MODAL ── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:50;
+  display:none;align-items:flex-end;justify-content:center;
+}
+.modal-overlay.open{display:flex}
+.modal-sheet{
+  background:var(--surface);border-radius:20px 20px 0 0;
+  width:100%;max-width:480px;max-height:70vh;
+  display:flex;flex-direction:column;
+  padding-bottom:var(--safe-bottom);
+}
+.modal-drag{height:4px;background:var(--border);border-radius:2px;width:40px;margin:12px auto 4px}
+.modal-hdr{padding:10px 16px 12px;border-bottom:0.5px solid var(--border);display:flex;align-items:center}
+.modal-title-txt{font-size:15px;font-weight:700;color:var(--accent);flex:1;font-family:Georgia,serif}
+.modal-close{
+  background:var(--parch);border:0.5px solid var(--border);
+  border-radius:8px;color:var(--ink2);cursor:pointer;
+  font-size:18px;padding:4px 10px;
+}
+.modal-close:active{background:var(--scroll)}
+.modal-body{padding:16px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.modal-verse-text{font-size:16px;font-family:Georgia,serif;font-style:italic;color:var(--ink);line-height:1.78;margin-bottom:12px}
+.modal-verse-ref{font-size:12px;font-weight:700;color:var(--gold)}
+/* ── ERROR ── */
+.error-box{
+  margin:20px 15px;padding:16px;
+  background:rgba(139,20,20,0.07);border:0.5px solid rgba(139,20,20,0.2);
+  border-radius:12px;color:#8b1a1a;font-size:13px;line-height:1.65;text-align:center;
+}
+.retry-btn{
+  margin-top:12px;padding:10px 20px;border-radius:10px;
+  background:#8b1a1a;color:#fff;border:none;font-size:13px;
+  font-weight:700;cursor:pointer;
+}
+.retry-btn:active{opacity:0.85}
+/* ── PERIODE COLOR THEMES ── */
+.ph{background:rgba(192,57,43,0.05);border-color:rgba(192,57,43,0.16)}
+.ph .periode-head{background:rgba(192,57,43,0.07)}
+.ph .periode-lbl{color:var(--h-color)}
+.ph .periode-angle{background:rgba(192,57,43,0.1);color:var(--h-color)}
+.ph .texte-card{background:rgba(192,57,43,0.04);border-color:rgba(192,57,43,0.13)}
+.ph .texte-badge{color:var(--h-color)}
+.pl{background:rgba(30,58,138,0.05);border-color:rgba(30,58,138,0.16)}
+.pl .periode-head{background:rgba(30,58,138,0.07)}
+.pl .periode-lbl{color:var(--l-color)}
+.pl .periode-angle{background:rgba(30,58,138,0.1);color:var(--l-color)}
+.pl .texte-card{background:rgba(30,58,138,0.04);border-color:rgba(30,58,138,0.13)}
+.pl .texte-badge{color:var(--l-color)}
+.ppr{background:rgba(124,58,237,0.05);border-color:rgba(124,58,237,0.16)}
+.ppr .periode-head{background:rgba(124,58,237,0.07)}
+.ppr .periode-lbl{color:var(--pr-color)}
+.ppr .periode-angle{background:rgba(124,58,237,0.1);color:var(--pr-color)}
+.ppr .texte-card{background:rgba(124,58,237,0.04);border-color:rgba(124,58,237,0.13)}
+.ppr .texte-badge{color:var(--pr-color)}
+.ppo{background:rgba(2,132,199,0.05);border-color:rgba(2,132,199,0.16)}
+.ppo .periode-head{background:rgba(2,132,199,0.07)}
+.ppo .periode-lbl{color:var(--po-color)}
+.ppo .periode-angle{background:rgba(2,132,199,0.1);color:var(--po-color)}
+.ppo .texte-card{background:rgba(2,132,199,0.04);border-color:rgba(2,132,199,0.13)}
+.ppo .texte-badge{color:var(--po-color)}
+/* ── EXHORTATION QUOTIDIENNE ── */
+.exhort-sec .sec-head{background:linear-gradient(90deg,rgba(234,179,8,0.16),rgba(30,58,138,0.12));color:var(--accent)}
+.exhort-intro{font-size:12px;color:var(--ink3);line-height:1.55;margin-bottom:12px;font-style:italic}
+.exhort-perso{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.exhort-volet{margin-bottom:11px;padding:11px 12px;border-radius:11px;border-left:4px solid var(--accent);background:var(--parch)}
+.exhort-volet.va{border-left-color:var(--red);background:rgba(192,57,43,0.05)}
+.exhort-volet.vb{border-left-color:var(--royal);background:rgba(30,58,138,0.05)}
+.exhort-volet.vc{border-left-color:var(--violet);background:rgba(124,58,237,0.05)}
+.exhort-volet.vd{border-left-color:var(--sky);background:rgba(2,132,199,0.05)}
+.exhort-volet-titre{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px}
+.exhort-volet.va .exhort-volet-titre{color:var(--red)}
+.exhort-volet.vb .exhort-volet-titre{color:var(--royal)}
+.exhort-volet.vc .exhort-volet-titre{color:var(--violet)}
+.exhort-volet.vd .exhort-volet-titre{color:var(--po-color)}
+.exhort-volet-txt{font-size:13px;color:var(--ink2);line-height:1.6}
+.exhort-volet-ref{display:inline-block;font-size:11px;font-weight:700;margin-top:5px;cursor:pointer;background:none;border:none;padding:0}
+.exhort-volet.va .exhort-volet-ref{color:var(--red)}
+.exhort-volet.vb .exhort-volet-ref{color:var(--royal)}
+.exhort-volet.vc .exhort-volet-ref{color:var(--violet)}
+.exhort-volet.vd .exhort-volet-ref{color:var(--po-color)}
+.exhort-appli{margin-top:13px;padding:13px;border-radius:11px;background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.32)}
+.exhort-appli-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--gold);margin-bottom:6px}
+.exhort-appli-txt{font-size:13.5px;color:var(--ink);line-height:1.65}
+.exhort-appli-ref{font-size:11.5px;font-weight:700;color:var(--gold);margin-top:6px}
+.exhort-share{display:flex;gap:8px;margin-top:14px}
+.exhort-share button{flex:1;padding:11px 6px;border-radius:10px;border:none;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.exhort-share .ws-btn{background:#25d366;color:#fff}
+.exhort-share .cp-btn{background:var(--accent);color:#fff}
+.exhort-share button:active{opacity:0.85;transform:scale(0.98)}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <span id="clockDisplay">9:41</span>
+    <span style="font-weight:700;letter-spacing:1px;display:flex;align-items:center">
+      <svg class="brand-logo-sm" viewBox="0 0 300 340" xmlns="http://www.w3.org/2000/svg">
+        <rect x="6" y="6" width="288" height="328" rx="40" fill="#1e3a8a" stroke="#c9a227" stroke-width="10"/>
+        <g fill="#e8c84d">
+          <path d="M150 104 C140 104 134 116 135 140 C137 178 143 212 150 244 C157 212 163 178 165 140 C166 116 160 104 150 104 Z"/>
+          <path d="M137 128 C98 120 58 132 28 166 C70 160 94 166 112 182 C84 188 64 202 50 228 C92 214 120 216 140 230 C140 196 139 162 137 128 Z"/>
+          <path d="M163 128 C202 120 242 132 272 166 C230 160 206 166 188 182 C216 188 236 202 250 228 C208 214 180 216 160 230 C160 196 161 162 163 128 Z"/>
+          <path d="M135 242 L150 298 L165 242 C159 250 141 250 135 242 Z"/>
+          <circle cx="150" cy="92" r="22"/>
+        </g>
+        <path d="M150 100 l20 8 -20 10 z" fill="#f4c530"/>
+        <circle cx="158" cy="86" r="4" fill="#0ea5e9"/>
+        <rect x="116" y="302" width="68" height="15" rx="7.5" fill="#c0392b"/>
+      </svg>
+      PÉNIEL
+    </span>
+    <span id="dateDisplay"></span>
+  </div>
+  <!-- NAV BAR -->
+  <div class="nav-bar">
+    <button class="nav-btn" id="authBtn" onclick="onAuthBtnClick()" title="Se connecter">🔑</button>
+    <span class="nav-title" id="navTitle">PÉNIEL — Étude biblique</span>
+    <button class="nav-btn" onclick="showScreen('saved')" title="Mes études">📚</button>
+  </div>
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <div class="tab active" id="tab-input" onclick="showScreen('input')">
+      <i>🔍</i>Péricope
+    </div>
+    <div class="tab" id="tab-study" onclick="showScreen('study')">
+      <i>📖</i>Étude
+    </div>
+    <div class="tab" id="tab-saved" onclick="showScreen('saved')">
+      <i>🔖</i>Enregistrées
+    </div>
+  </div>
+  <!-- SCREEN: INPUT -->
+  <div class="screen active" id="screen-input">
+    <div class="input-screen">
+      <div class="input-hero">
+        <svg class="brand-logo brand-logo-lg" viewBox="0 0 300 340" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="6" width="288" height="328" rx="40" fill="#1e3a8a" stroke="#c9a227" stroke-width="10"/>
+          <g fill="#e8c84d">
+            <path d="M150 104 C140 104 134 116 135 140 C137 178 143 212 150 244 C157 212 163 178 165 140 C166 116 160 104 150 104 Z"/>
+            <path d="M137 128 C98 120 58 132 28 166 C70 160 94 166 112 182 C84 188 64 202 50 228 C92 214 120 216 140 230 C140 196 139 162 137 128 Z"/>
+            <path d="M163 128 C202 120 242 132 272 166 C230 160 206 166 188 182 C216 188 236 202 250 228 C208 214 180 216 160 230 C160 196 161 162 163 128 Z"/>
+            <path d="M135 242 L150 298 L165 242 C159 250 141 250 135 242 Z"/>
+            <circle cx="150" cy="92" r="22"/>
+          </g>
+          <path d="M150 100 l20 8 -20 10 z" fill="#f4c530"/>
+          <circle cx="158" cy="86" r="4" fill="#0ea5e9"/>
+          <rect x="116" y="302" width="68" height="15" rx="7.5" fill="#c0392b"/>
+        </svg>
+        <div class="input-hero-title">PÉNIEL — Étude biblique</div>
+        <div class="input-hero-sub">Saisissez une péricope biblique et l'IA génère l'étude complète — Pensée, Preuves, 4 Périodes, Volonté de Dieu et Exhortation quotidienne</div>
+      </div>
+      <div class="input-card">
+        <div class="field-label">📌 Référence de la péricope</div>
+        <input class="field-input" id="pericInput" type="text"
+          placeholder="Ex : Jean 10:11-16"
+          autocomplete="off" autocorrect="off" spellcheck="false" />
+        <div class="field-gap"></div>
+        <div class="field-label">🏷 Titre (optionnel)</div>
+        <input class="field-input" id="titreInput" type="text"
+          placeholder="Ex : Le bon berger"
+          autocomplete="off" />
+        <button class="analyse-btn" id="analyseBtn" onclick="lancerAnalyse()">
+          ✨ Générer l'étude complète
+        </button>
+      </div>
+      <div class="examples-section">
+        <div class="examples-label">⚡ Exemples rapides</div>
+        <div class="chips">
+          <span class="chip" onclick="fillEx('Jean 10:11-16','Le bon berger')">Jean 10:11-16</span>
+          <span class="chip" onclick="fillEx('Ézéchiel 34:23-25','Le vrai berger')">Ézéchiel 34:23-25</span>
+          <span class="chip" onclick="fillEx('2 Corinthiens 5:17','La nouvelle création')">2 Cor 5:17</span>
+          <span class="chip" onclick="fillEx('Romains 8:1-4','Aucune condamnation')">Romains 8:1-4</span>
+          <span class="chip" onclick="fillEx('Genèse 28:10-15','Jacob à Béthel')">Genèse 28:10-15</span>
+          <span class="chip" onclick="fillEx('Psaume 23:1-6','Le Seigneur est mon berger')">Psaume 23:1-6</span>
+          <span class="chip" onclick="fillEx('Jean 3:16-17','Dieu a tant aimé')">Jean 3:16-17</span>
+          <span class="chip" onclick="fillEx('Éphésiens 1:3-6','Béni de toute bénédiction')">Éphésiens 1:3-6</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- SCREEN: LOADING (not a tab, shown/hidden) -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-cross">✝</div>
+    <div class="loading-title">Étude en cours…</div>
+    <div class="loading-ref" id="loadingRef">Jean 10:11-16</div>
+  </div>
+  <!-- SCREEN: STUDY -->
+  <div class="screen" id="screen-study">
+    <div id="studyContent">
+      <div style="padding:30px 20px;text-align:center;color:var(--ink3);font-size:14px;line-height:1.6">
+        ✝<br><br>
+        Saisissez une péricope dans l'onglet <strong>Péricope</strong><br>pour générer une étude complète.
+      </div>
+    </div>
+  </div>
+  <!-- SCREEN: SAVED -->
+  <div class="screen" id="screen-saved">
+    <div class="saved-screen">
+      <div class="saved-hdr">🔖 Mes études enregistrées</div>
+      <div class="account-banner guest" id="accountBanner"></div>
+      <div id="savedList"></div>
+    </div>
+  </div>
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal-sheet">
+      <div class="modal-drag"></div>
+      <div class="modal-hdr">
+        <span class="modal-title-txt" id="modalTitle"></span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-verse-text" id="modalVerseText"></div>
+        <div class="modal-verse-ref" id="modalVerseRef"></div>
+      </div>
+    </div>
+  </div>
+</div><!-- .app -->
+<!-- Firebase (compat) : authentification Google + Firestore pour les comptes
+     utilisateurs et la synchronisation des études enregistrées. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+// ── CONFIG ──
+// URL de votre proxy Render. Remplacez par l'URL réelle après le déploiement
+// (ex : https://arkad-bible-proxy.onrender.com/api/messages)
+const PROXY_URL = 'https://arkad-bible-proxy.onrender.com/api/messages';
+
+// ── FIREBASE (comptes utilisateurs + synchronisation cloud) ──
+// Remplacez ces valeurs par la config de VOTRE projet Firebase
+// (Console Firebase > Paramètres du projet > Vos applications > app Web).
+// Ces valeurs ne sont pas secrètes : elles sont conçues pour être visibles
+// côté client (la sécurité réelle vient des règles Firestore).
+const firebaseConfig = {
+  apiKey: "REMPLACER_API_KEY",
+  authDomain: "REMPLACER.firebaseapp.com",
+  projectId: "REMPLACER",
+  storageBucket: "REMPLACER.appspot.com",
+  messagingSenderId: "REMPLACER",
+  appId: "REMPLACER"
+};
+let auth = null, db = null, currentUser = null;
+try {
+  if (firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('REMPLACER')) {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+  } else {
+    console.warn('Firebase non configuré : le login fonctionnera dès que firebaseConfig sera renseigné.');
+  }
+} catch (e) {
+  console.error('Erreur d’initialisation Firebase :', e);
+}
+
+function slugifyRef(ref) {
+  return (ref || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'etude';
+}
+function signInWithGoogle() {
+  if (!auth) { alert('Le login n’est pas encore configuré côté app (firebaseConfig manquant).'); return; }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => alert('Erreur de connexion : ' + err.message));
+}
+function signOutUser() {
+  if (!auth) return;
+  auth.signOut();
+}
+function onAuthBtnClick() {
+  if (currentUser) {
+    if (confirm('Se déconnecter de ' + (currentUser.displayName || currentUser.email) + ' ?')) signOutUser();
+  } else {
+    signInWithGoogle();
+  }
+}
+function updateAuthUI() {
+  const btn = document.getElementById('authBtn');
+  const banner = document.getElementById('accountBanner');
+  if (btn) {
+    if (currentUser) {
+      btn.textContent = '👤';
+      btn.title = 'Connecté : ' + (currentUser.displayName || currentUser.email) + ' (toucher pour se déconnecter)';
+      btn.style.background = 'rgba(45,90,39,0.35)';
+    } else {
+      btn.textContent = '🔑';
+      btn.title = 'Se connecter avec Google';
+      btn.style.background = '';
+    }
+  }
+  if (banner) {
+    if (currentUser) {
+      banner.className = 'account-banner logged';
+      banner.innerHTML = `<span>✓ Connecté comme <strong>${currentUser.displayName || currentUser.email}</strong> — vos études sont synchronisées.</span><button onclick="onAuthBtnClick()">Déconnexion</button>`;
+    } else {
+      banner.className = 'account-banner guest';
+      banner.innerHTML = `<span>👤 Non connecté — vos études restent sur cet appareil seulement.</span><button onclick="signInWithGoogle()">Se connecter</button>`;
+    }
+  }
+}
+async function loadStudiesFromCloud() {
+  if (!currentUser || !db) return;
+  try {
+    const snap = await db.collection('users').doc(currentUser.uid).collection('studies').orderBy('updatedAt', 'desc').get();
+    savedStudies = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+  } catch (e) {
+    console.error('Erreur chargement études cloud :', e);
+  }
+  if (document.getElementById('screen-saved')?.classList.contains('active')) renderSaved();
+}
+if (auth) {
+  auth.onAuthStateChanged(async (user) => {
+    currentUser = user;
+    updateAuthUI();
+    if (user) {
+      await loadStudiesFromCloud();
+    } else {
+      try { savedStudies = JSON.parse(localStorage.getItem('arkad_studies') || '[]'); } catch (e) { savedStudies = []; }
+    }
+    if (document.getElementById('screen-saved')?.classList.contains('active')) renderSaved();
+  });
+}
+
+// ── CLOCK ──
+function updateClock(){
+  const now=new Date();
+  document.getElementById('clockDisplay').textContent=
+    now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  const days=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  document.getElementById('dateDisplay').textContent=
+    days[now.getDay()]+' '+now.getDate()+'/'+(now.getMonth()+1);
+}
+updateClock();setInterval(updateClock,30000);
+// ── STATE ──
+let currentStudy=null;
+let studyNotes={};
+let savedStudies=[];
+try{savedStudies=JSON.parse(localStorage.getItem('arkad_studies')||'[]')}catch(e){}
+updateAuthUI();
+// ── NAVIGATION ──
+function showScreen(t){
+  ['input','study','saved'].forEach(id=>{
+    document.getElementById('screen-'+id).classList.toggle('active',id===t);
+    const tb=document.getElementById('tab-'+id);
+    if(tb)tb.classList.toggle('active',id===t);
+  });
+  const titles={input:'PÉNIEL — Étude biblique',study:'Étude péricope',saved:'Mes études'};
+  document.getElementById('navTitle').textContent=titles[t]||'PÉNIEL — Étude biblique';
+  if(t==='saved')renderSaved();
+  if(t==='study'&&currentStudy)renderStudy(currentStudy);
+}
+// ── FILL EXAMPLE ──
+function fillEx(ref,titre){
+  document.getElementById('pericInput').value=ref;
+  document.getElementById('titreInput').value=titre;
+  showScreen('input');
+}
+// ── MAIN: LAUNCH ANALYSIS ──
+function lancerAnalyse(){
+  const ref=document.getElementById('pericInput').value.trim();
+  const titre=document.getElementById('titreInput').value.trim();
+  genererEtude(ref,titre,null);
+}
+// Régénère l'étude en imposant le verset de la Pensée choisi par l'utilisateur.
+async function regenererAvecPensee(){
+  if(!currentStudy)return;
+  const input=document.getElementById('penseeAdjustInput');
+  const newRef=input?input.value.trim():'';
+  if(!newRef)return;
+  const ref=currentStudy._requestedRef||currentStudy.reference;
+  const titre=currentStudy.titre||'';
+  await genererEtude(ref,titre,newRef);
+}
+async function genererEtude(ref,titre,forcedPenseeRef){
+  if(!ref){
+    document.getElementById('pericInput').focus();
+    document.getElementById('pericInput').style.borderColor='#c0392b';
+    setTimeout(()=>document.getElementById('pericInput').style.borderColor='',1500);
+    return;
+  }
+  document.getElementById('analyseBtn').disabled=true;
+  document.getElementById('loadingRef').textContent=ref+(titre?' — '+titre:'');
+  document.getElementById('loadingScreen').classList.add('show');
+  ['input','study','saved'].forEach(id=>document.getElementById('screen-'+id).classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  // Récupère les vraies références croisées (OpenBible.info) avant de construire le prompt,
+  // pour que la section "preuves" soit fiable plutôt qu'inventée par l'IA.
+  let crossRefList=[];
+  try{
+    const crUrl=PROXY_URL.replace('/api/messages','/api/cross-refs')+'?ref='+encodeURIComponent(ref);
+    const crResp=await fetch(crUrl);
+    if(crResp.ok){
+      const crData=await crResp.json();
+      if(Array.isArray(crData.references))crossRefList=crData.references;
+    }
+  }catch(e){ /* on continue sans références croisées si l'appel échoue */ }
+  const isSingleVerse=/:\d+$/.test(ref)&&!ref.includes('-');
+  const crossRefBlock=crossRefList.length
+    ?`RÉFÉRENCES CROISÉES EXACTES POUR CETTE PÉRICOPE (issues d'une base de données de référence, pas inventées) — utilise EXCLUSIVEMENT ces références pour la section "preuves", dans cet ordre de pertinence :\n${crossRefList.map(r=>'- '+r).join('\n')}\n\n`
+    :'';
+  const singleVerseBlock=isSingleVerse
+    ?`ATTENTION : le lecteur a soumis un seul verset (${ref}), pas une péricope complète. Identifie d'abord la péricope complète (l'unité littéraire naturelle — paragraphe, scène ou section thématique délimitée) à laquelle appartient ce verset, et utilise CETTE péricope élargie comme valeur de "reference" et pour "pericopeVersets" (pas seulement le verset isolé). Une péricope typique compte entre 3 et 30 versets.\n\n`
+    :'';
+  const forcedPenseeBlock=forcedPenseeRef
+    ?`IMPORTANT : L'UTILISATEUR A LUI-MÊME DÉSIGNÉ LA PENSÉE DE CETTE PÉRICOPE : ${forcedPenseeRef}. N'EN CHOISIS PAS UNE AUTRE — utilise EXACTEMENT cette référence comme "pensee.ref" (et le texte correspondant comme "pensee.texte"), et assure la cohérence de toute l'étude (preuves, périodes, volonté) avec ce choix.\n\n`
+    :'';
+  const prompt=`Tu es un expert en exégèse biblique utilisant la méthode Dr. Arkad. Analyse la péricope suivante et génère une étude complète en JSON.
+${singleVerseBlock}${forcedPenseeBlock}${crossRefBlock}
+PÉRICOPE : "${ref}"${titre?'\nTITRE : "'+titre+'"':''}
+Génère UNIQUEMENT un JSON valide avec cette structure exacte :
+{
+  "titre": "titre de la péricope",
+  "reference": "${ref}",
+  "resume": "résumé bref et précis de la péricope, en 2 à 3 phrases simples et claires (contexte, ce qui se passe, enseignement central)",
+  "pericopeVersets": [
+    {"n": 1, "texte": "texte du verset en français Louis Segond 1910"}
+  ],
+  "preuves": [
+    {"ref": "Livre ch:v", "texte": "texte complet LS1910"}
+  ],
+  "pensee": {
+    "ref": "Livre ch:v",
+    "texte": "verset central qui reflète et résume tous les textes de preuves",
+    "commentaire": "commentaire simple et clair expliquant pourquoi ce verset résume la péricope — même style simple et clair que l'explication de la Volonté de Dieu"
+  },
+  "periodes": {
+    "histoire": {
+      "angle": "L'identité du chrétien",
+      "at": [
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien explicite avec la Pensée sous l'angle de l'identité du chrétien"},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+      ],
+      "nt": [
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien explicite avec la Pensée sous l'angle de l'identité du chrétien"},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+      ]
+    },
+    "loi": {
+      "angle": "La volonté de Dieu à faire",
+      "at": [
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "ce que Dieu veut que le chrétien fasse ou ne fasse pas, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+      ],
+      "nt": [
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "ce que Dieu veut que le chrétien fasse ou ne fasse pas, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+      ]
+    },
+    "prophetie": {
+      "angle": "La volonté à accomplir",
+      "at": [
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "résultat de l'obéissance à la Loi, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+      ],
+      "nt": [
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "résultat de l'obéissance à la Loi, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+      ]
+    },
+    "poesie": {
+      "angle": "Le modèle de vie à transmettre",
+      "at": [
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "modèle de vie à laisser aux disciples, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+      ],
+      "nt": [
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "modèle de vie à laisser aux disciples, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+      ]
+    }
+  },
+  "volonte": {
+    "ref": "Livre ch:v (DOIT être une référence à l'intérieur de la péricope ${ref}, différente du verset de la Pensée si possible)",
+    "texte": "texte LS1910 — OBLIGATOIREMENT un verset pris DANS la péricope ${ref} elle-même (comme la Pensée), qui exprime la Volonté de Dieu",
+    "type": "cause",
+    "explication": "Explication du lien entre la Volonté de Dieu et la Pensée (cause ou conséquence)",
+    "periodes": {
+      "histoire": {
+        "angle": "L'identité du chrétien",
+        "at": [
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        ],
+        "nt": [
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        ]
+      },
+      "loi": {
+        "angle": "La volonté de Dieu à faire",
+        "at": [
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        ],
+        "nt": [
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        ]
+      },
+      "prophetie": {
+        "angle": "La volonté à accomplir",
+        "at": [
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        ],
+        "nt": [
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        ]
+      },
+      "poesie": {
+        "angle": "Le modèle de vie à transmettre",
+        "at": [
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        ],
+        "nt": [
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        ]
+      }
+    }
+  },
+  "exhortation": {
+    "personnage": "nom du personnage ou sujet central de la péricope",
+    "histoire": {"ref": "Livre ch:v", "texte": "texte LS1910", "commentaire": "A. SON HISTOIRE — qui est ce personnage et quelle était sa situation ; appuie-toi sur un texte d'histoire biblique (RÉUTILISE de préférence l'un des textes de la période 'histoire' ci-dessus)"},
+    "acte": {"ref": "Livre ch:v", "texte": "texte LS1910", "commentaire": "B. CE QU'IL A FAIT — quelle obéissance, quel acte de foi a-t-il posé ; appuie-toi sur un texte de loi ou d'enseignement (RÉUTILISE de préférence l'un des textes de la période 'loi')"},
+    "consequence": {"ref": "Livre ch:v", "texte": "texte LS1910", "commentaire": "C. CE QUE CELA A PRODUIT — la conséquence spirituelle ou prophétique de cet acte ; appuie-toi sur un texte prophétique (RÉUTILISE de préférence l'un des textes de la période 'prophetie')"},
+    "modele": {"ref": "Livre ch:v", "texte": "texte LS1910", "commentaire": "D. LE MODÈLE QU'IL LAISSE — quelle sagesse, quelle posture spirituelle transmet-il au disciple d'aujourd'hui ; appuie-toi sur un texte de poésie ou de sagesse (RÉUTILISE de préférence l'un des textes de la période 'poesie')"},
+    "application": {"ref": "Livre ch:v (OBLIGATOIREMENT un verset pris DANS la péricope ${ref})", "texte": "texte LS1910 de ce verset", "message": "application directe et personnelle au lecteur, chaleureuse et concrète, ancrée dans ce verset de la péricope"}
+  }
+}
+RÈGLES IMPORTANTES POUR LES 4 PÉRIODES (méthode Dr. Arkad) — c'est la règle la plus souvent violée, sois EXTRÊMEMENT rigoureux. Chaque période a EXACTEMENT deux zones de livres autorisés (une AT, une NT) et AUCUN AUTRE LIVRE n'est permis dans cette période :
+
+1. "histoire" — AT autorisé UNIQUEMENT : Josué, Juges, Ruth, 1 Samuel, 2 Samuel, 1 Rois, 2 Rois, 1 Chroniques, 2 Chroniques, Esdras, Néhémie, Esther.
+   NT autorisé UNIQUEMENT : Actes des Apôtres.
+   INTERDIT ici : Genèse à Deutéronome, tout prophète, tout poétique, tout évangile, toute épître, l'Apocalypse.
+
+2. "loi" — AT autorisé UNIQUEMENT : Genèse, Exode, Lévitique, Nombres, Deutéronome.
+   NT autorisé UNIQUEMENT : Matthieu, Marc, Luc, Jean (les 4 évangiles).
+   INTERDIT ici : tout livre historique (Josué-Esther), tout prophète, tout poétique, Actes, toute épître, l'Apocalypse.
+
+3. "prophetie" — AT autorisé UNIQUEMENT : Ésaïe, Jérémie, Lamentations, Ézéchiel, Daniel, Osée, Joël, Amos, Abdias, Jonas, Michée, Nahum, Habacuc, Sophonie, Aggée, Zacharie, Malachie.
+   NT autorisé UNIQUEMENT : Apocalypse.
+   INTERDIT ici : Pentateuque, livres historiques, poétiques, évangiles, Actes, épîtres.
+
+4. "poesie" — AT autorisé UNIQUEMENT : Job, Psaumes, Proverbes, Ecclésiaste, Cantique des Cantiques.
+   NT autorisé UNIQUEMENT : Romains, 1 Corinthiens, 2 Corinthiens, Galates, Éphésiens, Philippiens, Colossiens, 1 Thessaloniciens, 2 Thessaloniciens, 1 Timothée, 2 Timothée, Tite, Philémon, Hébreux, Jacques, 1 Pierre, 2 Pierre, 1 Jean, 2 Jean, 3 Jean, Jude (les épîtres).
+   INTERDIT ici : Pentateuque, livres historiques, prophètes, évangiles, Actes, Apocalypse.
+
+Avant de répondre, vérifie pour CHAQUE texte "at" et "nt" de CHAQUE période que le livre cité figure bien dans la liste "autorisé" correspondante. Si un livre ne figure dans aucune liste pour la zone choisie, change de texte.
+
+RÈGLE OBLIGATOIRE SUR LE NOMBRE DE TEXTES : pour CHACUNE des 4 périodes (histoire, loi, prophetie, poesie), "at" et "nt" sont des TABLEAUX d'EXACTEMENT 4 textes chacun (donc 4 AT + 4 NT = 8 textes par période, soit 32 textes au total pour les 4 périodes) — cherche ces textes à travers TOUTE la Bible (pas seulement la péricope), en respectant strictement la liste de livres autorisés pour la période et la zone (AT/NT) concernées. Jamais moins de 4 éléments dans un tableau "at" ou "nt". Fais exactement de même pour "volonte.periodes" (4 at + 4 nt par période également, donc 32 textes supplémentaires).
+
+RÈGLES GÉNÉRALES :
+- Tous les textes en français Louis Segond 1910
+- "resume" = un résumé bref et précis de la péricope, 2 à 3 phrases simples, compréhensibles immédiatement, qui situent le contexte et l'enseignement central — à placer juste avant les textes d'explication
+- La Pensée = le verset de la péricope qui reflète et résume TOUS les textes de preuves
+- "pensee.commentaire" = un commentaire simple et clair (même registre que "volonte.explication") qui explique pourquoi ce verset résume la péricope — il sera affiché juste après les textes d'explication
+- Les preuves = ${crossRefList.length?'utilise UNIQUEMENT la liste de références croisées exactes fournie ci-dessus, dans le même ordre, sans en omettre ni en fusionner aucune — recopie chaque référence TELLE QUELLE (y compris les virgules type "19:1, 16")':'références classiques LS1910 de cette péricope (celles en tête dans les Bibles annotées)'}
+- La Volonté de Dieu = soit la cause (pourquoi Dieu agit) soit la conséquence (ce qui résulte) de la Pensée
+
+RÈGLES DE RIGUEUR SUR LES TEXTES D'EXPLICATION (à respecter pour CHAQUE texte "at"/"nt") :
+- Choisis les passages les PLUS pertinents et les plus DIRECTS ; chaque texte doit soutenir DIRECTEMENT la Pensée ou la Volonté de Dieu, sinon ne le retiens pas.
+- Les 4 textes d'une même zone (AT ou NT) doivent être VARIÉS et COMPLÉMENTAIRES : évite les répétitions et les passages redondants qui disent la même chose.
+- Ne construis JAMAIS une doctrine sur un seul verset isolé : appuie chaque enseignement sur la convergence de plusieurs textes.
+- N'invente JAMAIS un lien entre deux passages s'il n'est pas clairement démontrable par le texte biblique lui-même ; en cas de doute, choisis un autre passage dont le lien est évident.
+- Lorsque plusieurs interprétations légitimes existent pour un passage, présente-les objectivement dans le champ "lien", avec leurs arguments bibliques respectifs, sans en imposer une seule.
+
+EXHORTATION QUOTIDIENNE ("exhortation") : rédige une exhortation courte, vivante et partageable (lisible sur WhatsApp ou en méditation), structurée en 4 volets autour du personnage ou du sujet central de la péricope. A=SON HISTOIRE (texte d'histoire), B=CE QU'IL A FAIT (texte de loi/enseignement), C=CE QUE CELA A PRODUIT (texte prophétique), D=LE MODÈLE QU'IL LAISSE (texte de poésie/sagesse) ; RÉUTILISE de préférence les textes déjà choisis dans les périodes correspondantes. Termine par une application directe et personnelle au lecteur, ancrée dans un verset DE LA PÉRICOPE. Style : français courant, chaleureux et direct, bibliquement ancré à chaque volet, sans jargon théologique inutile.
+
+- Réponds UNIQUEMENT avec le JSON, aucun texte avant ni après, aucun markdown`;
+  try{
+    const resp=await fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:16000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    if(data.error)throw new Error(data.error.message);
+    const raw=data.content[0].text.trim().replace(/^```json?\s*/,'').replace(/\s*```$/,'');
+    const study=JSON.parse(raw);
+
+    // L'IA a parfois tendance à simplifier/raccourcir une référence groupée
+    // (ex. "Ésaïe 19:1, 16" -> "Ésaïe 19:1") en recopiant les preuves. On
+    // reconstruit donc "preuves" directement à partir de la liste exacte de
+    // références croisées (crossRefList), dans le même ordre, en ne gardant
+    // de l'IA que son "lien" explicatif (positionnel) — la référence elle-même
+    // est désormais TOUJOURS la nôtre, jamais une recopie potentiellement altérée.
+    if(crossRefList.length){
+      const aiPreuves=Array.isArray(study.preuves)?study.preuves:[];
+      study.preuves=crossRefList.map((r,i)=>({
+        ref:r,
+        texte:(aiPreuves[i]&&aiPreuves[i].texte)||'',
+        lien:(aiPreuves[i]&&aiPreuves[i].lien)||''
+      }));
+    }
+
+    // Remplace le texte rédigé par l'IA par le texte EXACT Louis Segond 1910
+    // (péricope, preuves, périodes, volonté) — l'IA ne fait plus que choisir
+    // les références et l'analyse, pas le texte biblique lui-même.
+    // "at"/"nt" sont des tableaux de 4 textes ; on normalise en tableau au cas
+    // où l'IA renverrait un seul objet par erreur.
+    function asArray(v){ return Array.isArray(v)?v:(v?[v]:[]); }
+    try{
+      const refsToFetch=new Set();
+      if(study.reference)refsToFetch.add(study.reference);
+      (study.preuves||[]).forEach(p=>{if(p.ref)refsToFetch.add(p.ref)});
+      if(study.pensee&&study.pensee.ref)refsToFetch.add(study.pensee.ref);
+      if(study.volonte&&study.volonte.ref)refsToFetch.add(study.volonte.ref);
+      ['histoire','loi','prophetie','poesie'].forEach(k=>{
+        const pd=study.periodes&&study.periodes[k];
+        if(pd){
+          pd.at=asArray(pd.at); pd.nt=asArray(pd.nt);
+          pd.at.forEach(it=>{if(it&&it.ref)refsToFetch.add(it.ref)});
+          pd.nt.forEach(it=>{if(it&&it.ref)refsToFetch.add(it.ref)});
+        }
+        const vpd=study.volonte&&study.volonte.periodes&&study.volonte.periodes[k];
+        if(vpd){
+          vpd.at=asArray(vpd.at); vpd.nt=asArray(vpd.nt);
+          vpd.at.forEach(it=>{if(it&&it.ref)refsToFetch.add(it.ref)});
+          vpd.nt.forEach(it=>{if(it&&it.ref)refsToFetch.add(it.ref)});
+        }
+      });
+      const EXH_KEYS=['histoire','acte','consequence','modele','application'];
+      if(study.exhortation){
+        EXH_KEYS.forEach(k=>{const o=study.exhortation[k];if(o&&o.ref)refsToFetch.add(o.ref)});
+      }
+      const vtResp=await fetch(PROXY_URL.replace('/api/messages','/api/verse-text-batch'),{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({refs:Array.from(refsToFetch)})
+      });
+      if(vtResp.ok){
+        const vtData=await vtResp.json();
+        const results=vtData.results||{};
+        if(results[study.reference])study.pericopeVersets=results[study.reference].verses.map(v=>({n:v.n,texte:v.texte}));
+        const applyVerbatim=(obj)=>{if(obj&&obj.ref&&results[obj.ref])obj.texte=results[obj.ref].text};
+        (study.preuves||[]).forEach(applyVerbatim);
+        applyVerbatim(study.pensee);
+        applyVerbatim(study.volonte);
+        ['histoire','loi','prophetie','poesie'].forEach(k=>{
+          if(study.periodes&&study.periodes[k]){
+            study.periodes[k].at.forEach(applyVerbatim);
+            study.periodes[k].nt.forEach(applyVerbatim);
+          }
+          if(study.volonte&&study.volonte.periodes&&study.volonte.periodes[k]){
+            study.volonte.periodes[k].at.forEach(applyVerbatim);
+            study.volonte.periodes[k].nt.forEach(applyVerbatim);
+          }
+        });
+        if(study.exhortation){
+          EXH_KEYS.forEach(k=>applyVerbatim(study.exhortation[k]));
+        }
+      }
+    }catch(e){ /* en cas d'échec, on garde le texte rédigé par l'IA */ }
+
+    study._requestedRef=ref;
+    currentStudy=study;
+    setTimeout(()=>{
+      document.getElementById('loadingScreen').classList.remove('show');
+      document.getElementById('analyseBtn').disabled=false;
+      showScreen('study');
+    },300);
+  }catch(err){
+    document.getElementById('loadingScreen').classList.remove('show');
+    document.getElementById('analyseBtn').disabled=false;
+    document.getElementById('studyContent').innerHTML=`
+      <div class="error-box">
+        ⚠️<br><br>
+        <strong>Erreur lors de la génération</strong><br><br>
+        ${err.message}<br><br>
+        Vérifiez votre connexion internet et réessayez.
+        <br><br>
+        <button class="retry-btn" onclick="showScreen('input')">← Retour</button>
+      </div>`;
+    showScreen('study');
+  }
+}
+// ── RENDER STUDY ──
+function renderStudy(s){
+  if(!s)return;
+  const isSaved=savedStudies.some(x=>x.ref===s.reference);
+  const n=studyNotes[s.reference]||'';
+  const pConfig={
+    histoire:{cls:'ph',icon:'🕰',lbl:'Histoire',def:"L'identité du chrétien"},
+    loi:     {cls:'pl',icon:'⚖️',lbl:'Loi',     def:'La volonté à faire'},
+    prophetie:{cls:'ppr',icon:'👁',lbl:'Prophétie',def:'La volonté à accomplir'},
+    poesie:  {cls:'ppo',icon:'🎶',lbl:'Poésie',  def:'Le modèle de vie'}
+  };
+  function escAttr(s){return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\n/g,' ')}
+  function txCard(tx,label,pk,zone,idx){
+    if(!tx)return'';
+    const isCustom=!!tx.custom;
+    return`<div class="texte-card${isCustom?' custom':''}">
+      ${isCustom&&pk?`<button class="texte-del-btn" onclick="removeCustomTexte('${pk}','${zone}',${idx})" title="Retirer ce texte">✕</button>`:''}
+      <div class="texte-badge">${label}${isCustom?'<span class="texte-custom-tag">🙋 Vous</span>':''}</div>
+      <button class="texte-ref-btn" onclick="showModal('${escAttr(tx.ref)}','${escAttr(tx.texte)}')">
+        🔗 ${tx.ref||''}
+      </button>
+      <div class="texte-content">"${tx.texte||''}"</div>
+      ${tx.lien?`<div class="texte-lien">→ ${tx.lien}</div>`:''}
+    </div>`;
+  }
+  function periodeBlock(key,pd,pfx){
+    if(!pd)return'';
+    const c=pConfig[key];
+    const pid=pfx+'_'+key;
+    const atArr=Array.isArray(pd.at)?pd.at:(pd.at?[pd.at]:[]);
+    const ntArr=Array.isArray(pd.nt)?pd.nt:(pd.nt?[pd.nt]:[]);
+    const linkPk=pfx==='per'?key:null;
+    const atHtml=atArr.map((tx,i)=>txCard(tx,`AT ${i+1}/${atArr.length} — Ancien Testament`,linkPk,'at',i)).join('');
+    const ntHtml=ntArr.map((tx,i)=>txCard(tx,`NT ${i+1}/${ntArr.length} — Nouveau Testament`,linkPk,'nt',i)).join('');
+    return`<div class="periode-wrap ${c.cls}">
+      <div class="periode-head" onclick="togglePd('${pid}')">
+        <span>${c.icon}</span>
+        <span class="periode-lbl">${c.lbl}</span>
+        <span class="periode-angle">${pd.angle||c.def}</span>
+        <span class="periode-tog" id="ptog_${pid}">▸</span>
+      </div>
+      <div class="periode-body" id="ppb_${pid}">
+        ${atHtml}
+        ${ntHtml}
+      </div>
+    </div>`;
+  }
+  let prevHtml=(s.preuves||[]).map(p=>`
+    <div class="preuve-item">
+      <span class="preuve-ref">${p.ref||''}</span>
+      <span class="preuve-prev">${(p.texte||'').substring(0,60)}…</span>
+      <button class="eye-btn" onclick="showModal('${escAttr(p.ref)}','${escAttr(p.texte)}')">👁</button>
+    </div>`).join('');
+  let versetsHtml=(s.pericopeVersets||[]).map(v=>{
+    const ip=s.pensee&&s.pensee.ref&&s.pensee.ref.includes(':'+v.n);
+    return`<div class="pericope-verse${ip?' is-pensee':''}">
+      <span class="vnum">${v.n}</span>${v.texte||''}
+      ${ip?'<span class="p-badge">✨ Pensée</span>':''}
+    </div>`;
+  }).join('');
+  let perHtml=['histoire','loi','prophetie','poesie'].map(k=>periodeBlock(k,s.periodes?.[k],'per')).join('');
+  let volPerHtml=['histoire','loi','prophetie','poesie'].map(k=>periodeBlock(k,s.volonte?.periodes?.[k],'vol')).join('');
+  let exhortHtml='';
+  if(s.exhortation){
+    const ex=s.exhortation;
+    const volet=(o,cls,letter,titre)=>{
+      if(!o||(!o.commentaire&&!o.texte))return'';
+      return`<div class="exhort-volet ${cls}">
+        <div class="exhort-volet-titre">${letter}. ${titre}</div>
+        <div class="exhort-volet-txt">${o.commentaire||''}</div>
+        ${o.ref?`<button class="exhort-volet-ref" onclick="showModal('${escAttr(o.ref)}','${escAttr(o.texte)}')">🔗 ${o.ref}</button>`:''}
+      </div>`;
+    };
+    const ap=ex.application||{};
+    const apHtml=(ap.message||ap.texte)?`<div class="exhort-appli">
+      <div class="exhort-appli-lbl">🎯 Application personnelle</div>
+      <div class="exhort-appli-txt">${ap.message||''}</div>
+      ${ap.ref?`<div class="exhort-appli-ref">🔗 ${ap.ref}${ap.texte?' — « '+ap.texte+' »':''}</div>`:''}
+    </div>`:'';
+    const body=volet(ex.histoire,'va','A','Son histoire')
+      +volet(ex.acte,'vb','B',"Ce qu'il a fait")
+      +volet(ex.consequence,'vc','C','Ce que cela a produit')
+      +volet(ex.modele,'vd','D','Le modèle qu'+"'"+'il laisse')
+      +apHtml;
+    if(body.trim()){
+      exhortHtml=`<div class="section exhort-sec">
+        <div class="sec-head" onclick="toggleSec('exhort')">
+          🦅 Exhortation quotidienne
+          <span class="sec-tog" id="stog_exhort">▸</span>
+        </div>
+        <div class="sec-body collapsed" id="sec_exhort">
+          ${ex.personnage?`<div class="exhort-perso">✨ ${ex.personnage}</div>`:''}
+          <div class="exhort-intro">Une méditation courte et partageable, en 4 volets, autour du personnage central de la péricope.</div>
+          ${body}
+          <div class="exhort-share">
+            <button class="ws-btn" onclick="shareExhortation('whatsapp')">🟢 WhatsApp</button>
+            <button class="cp-btn" onclick="shareExhortation('copy')">📋 Copier</button>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+  document.getElementById('studyContent').innerHTML=`
+    <div class="study-header">
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px">
+        <div class="study-titre">${s.titre||s.reference}</div>
+        ${isSaved?'<span class="saved-tag">✓ Enregistrée</span>':''}
+      </div>
+      <div class="study-meta">
+        <span>📖 ${s.reference}</span>
+        <span>🕊 Louis Segond 1910</span>
+      </div>
+      ${(s._requestedRef&&s._requestedRef!==s.reference)?`<div class="requested-note">Demandé : ${s._requestedRef} → péricope étudiée : ${s.reference}</div>`:''}
+    </div>
+    <div class="study-body">
+      <div class="section">
+        <div class="sec-head" onclick="toggleSec('preuves')">
+          🔗 Preuves péricope (${(s.preuves||[]).length})
+          <span class="sec-tog" id="stog_preuves">▾</span>
+        </div>
+        <div class="sec-body" id="sec_preuves">${prevHtml}</div>
+      </div>
+      <div class="section">
+        <div class="sec-head" onclick="toggleSec('pericope')">
+          📜 Péricope complète
+          <span class="sec-tog" id="stog_pericope">▾</span>
+        </div>
+        <div class="sec-body" id="sec_pericope">${versetsHtml}</div>
+      </div>
+      ${s.resume?`<div class="section">
+        <div class="sec-head">📋 Résumé de la péricope</div>
+        <div class="sec-body"><div class="resume-box">${s.resume}</div></div>
+      </div>`:''}
+      <div class="section">
+        <div class="sec-head">✨ La Pensée</div>
+        <div class="sec-body">
+          <div class="pensee-box">
+            <div class="pensee-text">"${s.pensee?.texte||''}"</div>
+            <div class="pensee-ref">${s.pensee?.ref||''}</div>
+          </div>
+          ${s.pensee?.commentaire?`<div class="pensee-expl">${s.pensee.commentaire}</div>`:''}
+          <div class="pensee-adjust-label" style="margin-top:10px">Pas le bon verset ? Indiquez la référence exacte et régénérez :</div>
+          <div class="pensee-adjust">
+            <input type="text" id="penseeAdjustInput" placeholder="Ex : ${s.reference} 18" value="${s.pensee?.ref||''}" />
+            <button onclick="regenererAvecPensee()">🔄 Régénérer</button>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="sec-head" onclick="toggleSec('texpl')">
+          📚 Textes d'explication — 4 périodes
+          <span class="sec-tog" id="stog_texpl">▸</span>
+        </div>
+        <div class="sec-body collapsed" id="sec_texpl">
+          <div class="custom-add">
+            <div class="custom-add-label">🙋 Vous avez un texte à ajouter ? Indiquez la référence — il sera relié à la Pensée et classé automatiquement dans la bonne période :</div>
+            <div class="custom-add-row">
+              <input type="text" id="customTexteInput" placeholder="Ex : Romains 8:28" />
+              <button id="customTexteBtn" onclick="ajouterTexteCustom()">➕ Ajouter</button>
+            </div>
+            <div class="custom-add-msg" id="customTexteMsg"></div>
+          </div>
+          ${perHtml}
+        </div>
+      </div>
+      <div class="section">
+        <div class="sec-head" onclick="toggleSec('volonte')">
+          👑 La Volonté de Dieu
+          <span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(26,58,107,0.1);color:var(--blue);margin-left:4px;font-weight:700">${s.volonte?.type||''}</span>
+          <span class="sec-tog" id="stog_volonte">▸</span>
+        </div>
+        <div class="sec-body collapsed" id="sec_volonte">
+          <div class="volonte-box">
+            <div class="volonte-text">"${s.volonte?.texte||''}"</div>
+            <div class="volonte-ref">${s.volonte?.ref||''}</div>
+            <span class="volonte-type-tag">${s.volonte?.type||''}</span>
+          </div>
+          <div class="volonte-expl">${s.volonte?.explication||''}</div>
+          ${volPerHtml}
+        </div>
+      </div>
+      ${exhortHtml}
+      <div class="section">
+        <div class="sec-head" onclick="toggleSec('notes')">
+          📝 Mes notes
+          <span class="sec-tog" id="stog_notes">▾</span>
+        </div>
+        <div class="sec-body" id="sec_notes">
+          <textarea class="notes-ta" id="studyNotes"
+            placeholder="Réflexions, observations, questions sur cette péricope…"
+            oninput="autoSaveNotes()">${n}</textarea>
+        </div>
+      </div>
+    </div>
+    <div class="study-footer">
+      <button class="fbtn save" onclick="saveStudy()">🔖 Enregistrer</button>
+      <button class="fbtn" onclick="shareStudy()">📤 Partager</button>
+      <button class="fbtn" onclick="showScreen('input')">➕ Nouvelle</button>
+    </div>`;
+}
+function toggleSec(id){
+  const b=document.getElementById('sec_'+id);
+  const t=document.getElementById('stog_'+id);
+  if(!b)return;
+  const col=b.classList.toggle('collapsed');
+  if(t)t.textContent=col?'▸':'▾';
+}
+function togglePd(id){
+  const b=document.getElementById('ppb_'+id);
+  const t=document.getElementById('ptog_'+id);
+  if(!b)return;
+  const op=b.classList.toggle('open');
+  if(t)t.textContent=op?'▾':'▸';
+}
+// ── TEXTE D'EXPLICATION AJOUTÉ PAR L'UTILISATEUR ──
+// L'utilisateur indique une référence ; le serveur la classe automatiquement
+// dans la bonne période/zone (AT/NT) et renvoie son texte LS1910 exact ; l'IA
+// n'écrit ensuite qu'une courte phrase reliant ce texte à la Pensée. Affiché
+// avec une couleur distincte (vert sarcelle) pour le différencier des textes
+// choisis par l'IA.
+const PERIODE_ANGLE_DEF={
+  histoire:"L'identité du chrétien",
+  loi:'La volonté de Dieu à faire',
+  prophetie:'La volonté à accomplir',
+  poesie:'Le modèle de vie à transmettre'
+};
+async function ajouterTexteCustom(){
+  const input=document.getElementById('customTexteInput');
+  const btn=document.getElementById('customTexteBtn');
+  const msgEl=document.getElementById('customTexteMsg');
+  const ref=(input?.value||'').trim();
+  if(!ref||!currentStudy)return;
+  btn.disabled=true;
+  msgEl.className='custom-add-msg';
+  msgEl.textContent='Recherche en cours…';
+  try{
+    const clUrl=PROXY_URL.replace('/api/messages','/api/classify-ref')+'?ref='+encodeURIComponent(ref);
+    const clResp=await fetch(clUrl);
+    const clData=await clResp.json();
+    if(!clResp.ok||clData.error)throw new Error((clData.error&&clData.error.message)||'Référence introuvable.');
+    const{ref:frRef,periode,zone,texte}=clData;
+    const angle=(currentStudy.periodes&&currentStudy.periodes[periode]&&currentStudy.periodes[periode].angle)||PERIODE_ANGLE_DEF[periode];
+    const penseeTexte=(currentStudy.pensee&&currentStudy.pensee.texte)||'';
+    const penseeRef=(currentStudy.pensee&&currentStudy.pensee.ref)||'';
+    msgEl.textContent='Rédaction du lien avec la Pensée…';
+    const lienPrompt=`Voici la Pensée centrale d'une étude biblique : "${penseeTexte}" (${penseeRef}).
+Voici un texte que le lecteur a choisi lui-même comme texte d'explication, classé dans la période "${periode}" (angle : "${angle}") : "${texte}" (${frRef}).
+En 1 à 2 phrases simples et claires, explique le lien entre ce texte et la Pensée, sous l'angle de cette période.
+Réponds UNIQUEMENT avec le texte du lien, sans guillemets, sans préambule, sans markdown.`;
+    const lienResp=await fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:300,messages:[{role:'user',content:lienPrompt}]})
+    });
+    const lienData=await lienResp.json();
+    if(lienData.error)throw new Error(lienData.error.message);
+    const lien=((lienData.content&&lienData.content[0]&&lienData.content[0].text)||'').trim();
+    if(!currentStudy.periodes)currentStudy.periodes={};
+    if(!currentStudy.periodes[periode])currentStudy.periodes[periode]={angle,at:[],nt:[]};
+    if(!Array.isArray(currentStudy.periodes[periode][zone]))currentStudy.periodes[periode][zone]=[];
+    currentStudy.periodes[periode][zone].push({ref:frRef,texte,lien,custom:true});
+    input.value='';
+    renderStudy(currentStudy);
+    const body=document.getElementById('sec_texpl');
+    if(body)body.classList.remove('collapsed');
+    const tog=document.getElementById('stog_texpl');
+    if(tog)tog.textContent='▾';
+  }catch(e){
+    msgEl.className='custom-add-msg err';
+    msgEl.textContent='⚠️ '+e.message;
+    btn.disabled=false;
+  }
+}
+function removeCustomTexte(periode,zone,idx){
+  if(!currentStudy||!currentStudy.periodes||!currentStudy.periodes[periode]||!currentStudy.periodes[periode][zone])return;
+  currentStudy.periodes[periode][zone].splice(idx,1);
+  renderStudy(currentStudy);
+  const body=document.getElementById('sec_texpl');
+  if(body)body.classList.remove('collapsed');
+  const tog=document.getElementById('stog_texpl');
+  if(tog)tog.textContent='▾';
+}
+function autoSaveNotes(){
+  const ta=document.getElementById('studyNotes');
+  if(ta&&currentStudy)studyNotes[currentStudy.reference]=ta.value;
+}
+// ── SAVE ──
+async function saveStudy(){
+  if(!currentStudy)return;
+  const n=studyNotes[currentStudy.reference]||document.getElementById('studyNotes')?.value||'';
+  const entry={
+    ref:currentStudy.reference,
+    titre:currentStudy.titre,
+    pensee:currentStudy.pensee?.ref,
+    notes:n,
+    date:new Date().toLocaleDateString('fr-FR'),
+    updatedAt:Date.now(),
+    data:currentStudy
+  };
+  const btn=event.target;
+  if(currentUser&&db){
+    try{
+      const docId=slugifyRef(currentStudy.reference);
+      await db.collection('users').doc(currentUser.uid).collection('studies').doc(docId).set(entry);
+      await loadStudiesFromCloud();
+    }catch(e){
+      alert('Erreur de sauvegarde cloud : '+e.message);
+      return;
+    }
+  }else{
+    const idx=savedStudies.findIndex(x=>x.ref===currentStudy.reference);
+    if(idx>=0)savedStudies[idx]=entry;else savedStudies.unshift(entry);
+    try{localStorage.setItem('arkad_studies',JSON.stringify(savedStudies))}catch(e){}
+  }
+  renderStudy(currentStudy);
+  // petit feedback
+  btn.textContent='✓ Enregistrée !';
+  setTimeout(()=>btn.textContent='🔖 Enregistrer',1500);
+}
+// ── SHARE ──
+function shareStudy(){
+  if(!currentStudy)return;
+  const n=studyNotes[currentStudy.reference]||'';
+  const preuves=(currentStudy.preuves||[]).map(p=>'• '+p.ref).join('\n');
+  const text=
+    '🦅 PÉNIEL — ÉTUDE BIBLIQUE\n\n'+
+    '📖 '+( currentStudy.titre||currentStudy.reference)+' ('+currentStudy.reference+')\n\n'+
+    '✨ LA PENSÉE :\n"'+currentStudy.pensee?.texte+'"\n— '+currentStudy.pensee?.ref+'\n\n'+
+    '🔗 PREUVES PÉRICOPE :\n'+preuves+'\n\n'+
+    '👑 VOLONTÉ DE DIEU ('+currentStudy.volonte?.type+') :\n"'+currentStudy.volonte?.texte+'"\n— '+currentStudy.volonte?.ref+
+    (n?'\n\n📝 NOTES :\n'+n:'')+
+    '\n\n— PÉNIEL · Étude biblique';
+  if(navigator.share){
+    navigator.share({title:currentStudy.titre||currentStudy.reference,text});
+  }else{
+    try{navigator.clipboard.writeText(text);alert('✓ Étude copiée dans le presse-papier !')}
+    catch(e){alert(text)}
+  }
+}
+// ── EXHORTATION : texte partageable + partage ──
+function buildExhortationText(){
+  if(!currentStudy||!currentStudy.exhortation)return'';
+  const ex=currentStudy.exhortation;
+  const ref=currentStudy.reference||'';
+  const v=(o)=>o&&(o.commentaire||o.texte)?o.commentaire||'':'';
+  let t='🦅 EXHORTATION QUOTIDIENNE — PÉNIEL\n';
+  t+='📖 '+(currentStudy.titre||ref)+' ('+ref+')\n';
+  if(ex.personnage)t+='✨ '+ex.personnage+'\n';
+  t+='\n';
+  if(v(ex.histoire))t+='A. SON HISTOIRE\n'+v(ex.histoire)+(ex.histoire.ref?'\n('+ex.histoire.ref+')':'')+'\n\n';
+  if(v(ex.acte))t+="B. CE QU'IL A FAIT\n"+v(ex.acte)+(ex.acte.ref?'\n('+ex.acte.ref+')':'')+'\n\n';
+  if(v(ex.consequence))t+='C. CE QUE CELA A PRODUIT\n'+v(ex.consequence)+(ex.consequence.ref?'\n('+ex.consequence.ref+')':'')+'\n\n';
+  if(v(ex.modele))t+="D. LE MODÈLE QU'IL LAISSE\n"+v(ex.modele)+(ex.modele.ref?'\n('+ex.modele.ref+')':'')+'\n\n';
+  const ap=ex.application||{};
+  if(ap.message||ap.texte){
+    t+='🎯 POUR TOI AUJOURD’HUI\n'+(ap.message||'');
+    if(ap.ref)t+='\n— '+ap.ref+(ap.texte?' : « '+ap.texte+' »':'');
+    t+='\n\n';
+  }
+  t+='— PÉNIEL · Étude biblique';
+  return t;
+}
+function shareExhortation(mode){
+  const text=buildExhortationText();
+  if(!text)return;
+  if(mode==='whatsapp'){
+    window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+    return;
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>alert('✓ Exhortation copiée !'),()=>alert(text));
+  }else{
+    try{navigator.clipboard.writeText(text);alert('✓ Exhortation copiée !')}catch(e){alert(text)}
+  }
+}
+// ── SAVED LIST ──
+function renderSaved(){
+  const el=document.getElementById('savedList');
+  if(!savedStudies.length){
+    el.innerHTML='<div class="saved-empty">📖<br><br>Aucune étude enregistrée.<br>Générez une étude et touchez <strong>🔖 Enregistrer</strong>.</div>';
+    return;
+  }
+  el.innerHTML=savedStudies.map(s=>`
+    <div class="saved-item" onclick="loadSaved('${(s.ref||'').replace(/'/g,"\\'")}')">
+      <div class="si-titre">${s.titre||s.ref}</div>
+      <div class="si-ref">📖 ${s.ref}</div>
+      <div class="si-pensee">✨ Pensée : ${s.pensee||''}</div>
+      <div class="si-meta">
+        <span>📅 ${s.date}</span>
+        ${s.notes?'<span>📝 Avec notes</span>':''}
+      </div>
+    </div>`).join('');
+}
+function loadSaved(ref){
+  const s=savedStudies.find(x=>x.ref===ref);
+  if(s&&s.data){currentStudy=s.data;showScreen('study')}
+}
+// ── MODAL ──
+function showModal(ref,texte){
+  document.getElementById('modalTitle').textContent=ref;
+  document.getElementById('modalVerseText').textContent='"'+texte+'"';
+  document.getElementById('modalVerseRef').textContent=ref;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
+// ── PWA MANIFEST (inline) ──
+const EAGLE_ICON='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 340"><rect x="6" y="6" width="288" height="328" rx="40" fill="%231e3a8a" stroke="%23c9a227" stroke-width="10"/><g fill="%23e8c84d"><path d="M150 104 C140 104 134 116 135 140 C137 178 143 212 150 244 C157 212 163 178 165 140 C166 116 160 104 150 104 Z"/><path d="M137 128 C98 120 58 132 28 166 C70 160 94 166 112 182 C84 188 64 202 50 228 C92 214 120 216 140 230 C140 196 139 162 137 128 Z"/><path d="M163 128 C202 120 242 132 272 166 C230 160 206 166 188 182 C216 188 236 202 250 228 C208 214 180 216 160 230 C160 196 161 162 163 128 Z"/><path d="M135 242 L150 298 L165 242 C159 250 141 250 135 242 Z"/><circle cx="150" cy="92" r="22"/></g><path d="M150 100 l20 8 -20 10 z" fill="%23f4c530"/><circle cx="158" cy="86" r="4" fill="%230ea5e9"/><rect x="116" y="302" width="68" height="15" rx="7.5" fill="%23c0392b"/></svg>';
+const manifest={
+  name:'PÉNIEL — Étude biblique',
+  short_name:'PÉNIEL',
+  description:'Étude biblique de péricope — Pensée, Preuves, 4 Périodes, Volonté de Dieu, Exhortation',
+  start_url:'.',
+  display:'standalone',
+  background_color:'#0a1330',
+  theme_color:'#1e3a8a',
+  orientation:'portrait',
+  icons:[
+    {src:EAGLE_ICON,sizes:'192x192',type:'image/svg+xml'},
+    {src:EAGLE_ICON,sizes:'512x512',type:'image/svg+xml'}
+  ]
+};
+const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
+document.getElementById('manifestLink').href=URL.createObjectURL(blob);
+</script>
+</body>
+</html>
