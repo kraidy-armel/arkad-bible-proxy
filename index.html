@@ -321,7 +321,11 @@ html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:
 .exhort-appli-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--gold);margin-bottom:6px}
 .exhort-appli-txt{font-size:13.5px;color:var(--ink);line-height:1.65}
 .exhort-appli-ref{font-size:11.5px;font-weight:700;color:var(--gold);margin-top:6px}
-.exhort-share{display:flex;gap:8px;margin-top:14px}
+.exhort-recit{font-size:14px;color:var(--ink);line-height:1.72;padding:14px;border-radius:12px;background:rgba(201,162,39,0.1);border:1px solid rgba(201,162,39,0.32);white-space:pre-wrap}
+.exhort-recit-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--gold);margin-bottom:7px}
+.exhort-refs{font-size:11px;color:var(--ink3);margin-top:9px;line-height:1.5}
+.exhort-breakdown-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:var(--ink3);margin:16px 0 8px}
+.exhort-share{display:flex;gap:8px;margin-top:12px}
 .exhort-share button{flex:1;padding:11px 6px;border-radius:10px;border:none;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .exhort-share .ws-btn{background:#25d366;color:#fff}
 .exhort-share .cp-btn{background:var(--accent);color:#fff}
@@ -449,12 +453,13 @@ const PROXY_URL = 'https://arkad-bible-proxy.onrender.com/api/messages';
 // Ces valeurs ne sont pas secrètes : elles sont conçues pour être visibles
 // côté client (la sécurité réelle vient des règles Firestore).
 const firebaseConfig = {
-  apiKey: "REMPLACER_API_KEY",
-  authDomain: "REMPLACER.firebaseapp.com",
-  projectId: "REMPLACER",
-  storageBucket: "REMPLACER.appspot.com",
-  messagingSenderId: "REMPLACER",
-  appId: "REMPLACER"
+  apiKey: "AIzaSyBWa0KTNFJ7WqLpd4RGd5ES_waA4l3DVs8",
+  authDomain: "efbc-mission-god.firebaseapp.com",
+  projectId: "efbc-mission-god",
+  storageBucket: "efbc-mission-god.firebasestorage.app",
+  messagingSenderId: "356693380430",
+  appId: "1:356693380430:web:5f1e970200c0876991a21f",
+  measurementId: "G-63Z4EFYN59"
 };
 let auth = null, db = null, currentUser = null;
 try {
@@ -609,12 +614,12 @@ async function genererEtude(ref,titre,forcedPenseeRef){
       if(Array.isArray(crData.references))crossRefList=crData.references;
     }
   }catch(e){ /* on continue sans références croisées si l'appel échoue */ }
-  const isSingleVerse=/:\d+$/.test(ref)&&!ref.includes('-');
+  const isSingleVerse=/[:.]\d+$/.test(ref)&&!/[-–]/.test(ref);
   const crossRefBlock=crossRefList.length
-    ?`RÉFÉRENCES CROISÉES EXACTES POUR CETTE PÉRICOPE (issues d'une base de données de référence, pas inventées) — utilise EXCLUSIVEMENT ces références pour la section "preuves", dans cet ordre de pertinence :\n${crossRefList.map(r=>'- '+r).join('\n')}\n\n`
+    ?`RÉFÉRENCES CROISÉES POUR CETTE PÉRICOPE (issues d'une base de référence, pas inventées) — base-toi EXCLUSIVEMENT sur ces références pour la section "preuves", dans cet ordre. Tu peux RESTREINDRE une référence à un sous-ensemble de versets (même livre ET même chapitre), mais jamais en ajouter une nouvelle ni changer de livre/chapitre :\n${crossRefList.map(r=>'- '+r).join('\n')}\n\n`
     :'';
   const singleVerseBlock=isSingleVerse
-    ?`ATTENTION : le lecteur a soumis un seul verset (${ref}), pas une péricope complète. Identifie d'abord la péricope complète (l'unité littéraire naturelle — paragraphe, scène ou section thématique délimitée) à laquelle appartient ce verset, et utilise CETTE péricope élargie comme valeur de "reference" et pour "pericopeVersets" (pas seulement le verset isolé). Une péricope typique compte entre 3 et 30 versets.\n\n`
+    ?`⚠️ RÈGLE ABSOLUE — VERSET UNIQUE : le lecteur a saisi UN SEUL verset (${ref}). NE TRAITE PAS ce verset isolé. Détermine d'abord la PÉRICOPE COMPLÈTE (l'unité littéraire naturelle : paragraphe, scène ou section délimitée) à laquelle il appartient — en général 3 à 30 versets — et fais TOUTE l'étude sur cette péricope élargie. Le champ "reference" DOIT être la plage complète, jamais le verset seul (ex. saisie "Ruth 1:1" → "reference":"Ruth 1:1-5" ; saisie "Ézéchiel 36:1" → la section entière comme "Ézéchiel 36:1-15").\n\n`
     :'';
   const forcedPenseeBlock=forcedPenseeRef
     ?`IMPORTANT : L'UTILISATEUR A LUI-MÊME DÉSIGNÉ LA PENSÉE DE CETTE PÉRICOPE : ${forcedPenseeRef}. N'EN CHOISIS PAS UNE AUTRE — utilise EXACTEMENT cette référence comme "pensee.ref" (et le texte correspondant comme "pensee.texte"), et assure la cohérence de toute l'étude (preuves, périodes, volonté) avec ce choix.\n\n`
@@ -627,154 +632,153 @@ Génère UNIQUEMENT un JSON valide avec cette structure exacte :
   "titre": "titre de la péricope",
   "reference": "${ref}",
   "resume": "résumé bref et précis de la péricope, en 2 à 3 phrases simples et claires (contexte, ce qui se passe, enseignement central)",
-  "pericopeVersets": [
-    {"n": 1, "texte": "texte du verset en français Louis Segond 1910"}
-  ],
+  "pericopeVersets": [],
   "preuves": [
-    {"ref": "Livre ch:v", "texte": "texte complet LS1910"}
+    {"ref": "Livre ch:v", "texte": ""}
   ],
   "pensee": {
     "ref": "Livre ch:v",
-    "texte": "verset central qui reflète et résume tous les textes de preuves",
+    "texte": "",
     "commentaire": "commentaire simple et clair expliquant pourquoi ce verset résume la péricope — même style simple et clair que l'explication de la Volonté de Dieu"
   },
   "periodes": {
     "histoire": {
       "angle": "L'identité du chrétien",
       "at": [
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien explicite avec la Pensée sous l'angle de l'identité du chrétien"},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        {"ref": "Livre ch:v", "texte": "", "lien": "lien explicite avec la Pensée sous l'angle de l'identité du chrétien"},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."}
       ],
       "nt": [
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien explicite avec la Pensée sous l'angle de l'identité du chrétien"},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        {"ref": "Livre ch:v", "texte": "", "lien": "lien explicite avec la Pensée sous l'angle de l'identité du chrétien"},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."}
       ]
     },
     "loi": {
       "angle": "La volonté de Dieu à faire",
       "at": [
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "ce que Dieu veut que le chrétien fasse ou ne fasse pas, en lien avec la Pensée"},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        {"ref": "Livre ch:v", "texte": "", "lien": "ce que Dieu veut que le chrétien fasse ou ne fasse pas, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."}
       ],
       "nt": [
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "ce que Dieu veut que le chrétien fasse ou ne fasse pas, en lien avec la Pensée"},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        {"ref": "Livre ch:v", "texte": "", "lien": "ce que Dieu veut que le chrétien fasse ou ne fasse pas, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."}
       ]
     },
     "prophetie": {
       "angle": "La volonté à accomplir",
       "at": [
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "résultat de l'obéissance à la Loi, en lien avec la Pensée"},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        {"ref": "Livre ch:v", "texte": "", "lien": "résultat de l'obéissance à la Loi, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."}
       ],
       "nt": [
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "résultat de l'obéissance à la Loi, en lien avec la Pensée"},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        {"ref": "Livre ch:v", "texte": "", "lien": "résultat de l'obéissance à la Loi, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."}
       ]
     },
     "poesie": {
       "angle": "Le modèle de vie à transmettre",
       "at": [
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "modèle de vie à laisser aux disciples, en lien avec la Pensée"},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        {"ref": "Livre ch:v", "texte": "", "lien": "modèle de vie à laisser aux disciples, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."}
       ],
       "nt": [
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "modèle de vie à laisser aux disciples, en lien avec la Pensée"},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-        {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+        {"ref": "Livre ch:v", "texte": "", "lien": "modèle de vie à laisser aux disciples, en lien avec la Pensée"},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+        {"ref": "Livre ch:v", "texte": "", "lien": "..."}
       ]
     }
   },
   "volonte": {
     "ref": "Livre ch:v (DOIT être une référence à l'intérieur de la péricope ${ref}, différente du verset de la Pensée si possible)",
-    "texte": "texte LS1910 — OBLIGATOIREMENT un verset pris DANS la péricope ${ref} elle-même (comme la Pensée), qui exprime la Volonté de Dieu",
+    "texte": "",
     "type": "cause",
     "explication": "Explication du lien entre la Volonté de Dieu et la Pensée (cause ou conséquence)",
     "periodes": {
       "histoire": {
         "angle": "L'identité du chrétien",
         "at": [
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+          {"ref": "Livre ch:v", "texte": "", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."}
         ],
         "nt": [
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+          {"ref": "Livre ch:v", "texte": "", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."}
         ]
       },
       "loi": {
         "angle": "La volonté de Dieu à faire",
         "at": [
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+          {"ref": "Livre ch:v", "texte": "", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."}
         ],
         "nt": [
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+          {"ref": "Livre ch:v", "texte": "", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."}
         ]
       },
       "prophetie": {
         "angle": "La volonté à accomplir",
         "at": [
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+          {"ref": "Livre ch:v", "texte": "", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."}
         ],
         "nt": [
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+          {"ref": "Livre ch:v", "texte": "", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."}
         ]
       },
       "poesie": {
         "angle": "Le modèle de vie à transmettre",
         "at": [
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+          {"ref": "Livre ch:v", "texte": "", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."}
         ],
         "nt": [
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "lien avec la Volonté"},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."},
-          {"ref": "Livre ch:v", "texte": "texte LS1910", "lien": "..."}
+          {"ref": "Livre ch:v", "texte": "", "lien": "lien avec la Volonté"},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."},
+          {"ref": "Livre ch:v", "texte": "", "lien": "..."}
         ]
       }
     }
   },
   "exhortation": {
     "personnage": "nom du personnage ou sujet central de la péricope",
-    "histoire": {"ref": "Livre ch:v", "texte": "texte LS1910", "commentaire": "A. SON HISTOIRE — qui est ce personnage et quelle était sa situation ; appuie-toi sur un texte d'histoire biblique (RÉUTILISE de préférence l'un des textes de la période 'histoire' ci-dessus)"},
-    "acte": {"ref": "Livre ch:v", "texte": "texte LS1910", "commentaire": "B. CE QU'IL A FAIT — quelle obéissance, quel acte de foi a-t-il posé ; appuie-toi sur un texte de loi ou d'enseignement (RÉUTILISE de préférence l'un des textes de la période 'loi')"},
-    "consequence": {"ref": "Livre ch:v", "texte": "texte LS1910", "commentaire": "C. CE QUE CELA A PRODUIT — la conséquence spirituelle ou prophétique de cet acte ; appuie-toi sur un texte prophétique (RÉUTILISE de préférence l'un des textes de la période 'prophetie')"},
-    "modele": {"ref": "Livre ch:v", "texte": "texte LS1910", "commentaire": "D. LE MODÈLE QU'IL LAISSE — quelle sagesse, quelle posture spirituelle transmet-il au disciple d'aujourd'hui ; appuie-toi sur un texte de poésie ou de sagesse (RÉUTILISE de préférence l'un des textes de la période 'poesie')"},
-    "application": {"ref": "Livre ch:v (OBLIGATOIREMENT un verset pris DANS la péricope ${ref})", "texte": "texte LS1910 de ce verset", "message": "application directe et personnelle au lecteur, chaleureuse et concrète, ancrée dans ce verset de la péricope"}
+    "recit": "L'EXHORTATION À PARTAGER : un SEUL texte fluide et chaleureux (≈120 à 180 mots) qui enchaîne les 4 périodes dans l'ordre le plus logique (en général histoire → loi → prophétie → poésie) autour du personnage central, avec une phrase de TRANSITION reliant chaque période à la suivante, et se terminant par une application personnelle et directe au lecteur ancrée dans un verset de la péricope. Style WhatsApp / méditation quotidienne, français courant, sans jargon. N'écris PAS les références ici, elles sont ajoutées automatiquement.",
+    "histoire": {"ref": "Livre ch:v", "texte": "", "commentaire": "A. SON HISTOIRE — qui est ce personnage et quelle était sa situation ; appuie-toi sur un texte d'histoire biblique (RÉUTILISE de préférence l'un des textes de la période 'histoire' ci-dessus)"},
+    "acte": {"ref": "Livre ch:v", "texte": "", "commentaire": "B. CE QU'IL A FAIT — quelle obéissance, quel acte de foi a-t-il posé ; appuie-toi sur un texte de loi ou d'enseignement (RÉUTILISE de préférence l'un des textes de la période 'loi')"},
+    "consequence": {"ref": "Livre ch:v", "texte": "", "commentaire": "C. CE QUE CELA A PRODUIT — la conséquence spirituelle ou prophétique de cet acte ; appuie-toi sur un texte prophétique (RÉUTILISE de préférence l'un des textes de la période 'prophetie')"},
+    "modele": {"ref": "Livre ch:v", "texte": "", "commentaire": "D. LE MODÈLE QU'IL LAISSE — quelle sagesse, quelle posture spirituelle transmet-il au disciple d'aujourd'hui ; appuie-toi sur un texte de poésie ou de sagesse (RÉUTILISE de préférence l'un des textes de la période 'poesie')"},
+    "application": {"ref": "Livre ch:v (OBLIGATOIREMENT un verset pris DANS la péricope ${ref})", "texte": "", "message": "application directe et personnelle au lecteur, chaleureuse et concrète, ancrée dans ce verset de la péricope"}
   }
 }
 RÈGLES IMPORTANTES POUR LES 4 PÉRIODES (méthode Dr. Arkad) — c'est la règle la plus souvent violée, sois EXTRÊMEMENT rigoureux. Chaque période a EXACTEMENT deux zones de livres autorisés (une AT, une NT) et AUCUN AUTRE LIVRE n'est permis dans cette période :
@@ -800,11 +804,12 @@ Avant de répondre, vérifie pour CHAQUE texte "at" et "nt" de CHAQUE période q
 RÈGLE OBLIGATOIRE SUR LE NOMBRE DE TEXTES : pour CHACUNE des 4 périodes (histoire, loi, prophetie, poesie), "at" et "nt" sont des TABLEAUX d'EXACTEMENT 4 textes chacun (donc 4 AT + 4 NT = 8 textes par période, soit 32 textes au total pour les 4 périodes) — cherche ces textes à travers TOUTE la Bible (pas seulement la péricope), en respectant strictement la liste de livres autorisés pour la période et la zone (AT/NT) concernées. Jamais moins de 4 éléments dans un tableau "at" ou "nt". Fais exactement de même pour "volonte.periodes" (4 at + 4 nt par période également, donc 32 textes supplémentaires).
 
 RÈGLES GÉNÉRALES :
-- Tous les textes en français Louis Segond 1910
+- ⚠️ ÉCONOMIE DE SORTIE (IMPÉRATIF) : NE recopie AUCUN texte biblique. Laisse TOUS les champs "texte" STRICTEMENT VIDES (""). Le serveur insère lui-même le texte exact Louis Segond 1910 à partir des références "ref". Cela vaut pour preuves, pensee, volonte, TOUS les textes des 4 périodes (et de volonte.periodes), et l'exhortation. Renvoie "pericopeVersets" comme un tableau VIDE []. Renseigne UNIQUEMENT : ref, lien, angle, resume, commentaire, explication, message, personnage, type. Ta réponse doit rester COMPACTE (références + analyse, jamais le texte des versets).
+- Les références (ref) utilisent les noms de livres en français Louis Segond 1910
 - "resume" = un résumé bref et précis de la péricope, 2 à 3 phrases simples, compréhensibles immédiatement, qui situent le contexte et l'enseignement central — à placer juste avant les textes d'explication
 - La Pensée = le verset de la péricope qui reflète et résume TOUS les textes de preuves
 - "pensee.commentaire" = un commentaire simple et clair (même registre que "volonte.explication") qui explique pourquoi ce verset résume la péricope — il sera affiché juste après les textes d'explication
-- Les preuves = ${crossRefList.length?'utilise UNIQUEMENT la liste de références croisées exactes fournie ci-dessus, dans le même ordre, sans en omettre ni en fusionner aucune — recopie chaque référence TELLE QUELLE (y compris les virgules type "19:1, 16")':'références classiques LS1910 de cette péricope (celles en tête dans les Bibles annotées)'}
+- Les preuves = ${crossRefList.length?'pars de la liste de références croisées fournie ci-dessus (garde-les TOUTES, dans le même ordre, sans changer de livre ni de chapitre). Si une référence couvre une plage large ou un chapitre entier, RESTREINS-la dans "ref" au(x) SEUL(S) verset(s) précis qui justifie(nt) la Pensée — ex. "Jérémie 31:4-14, 23-28" devient "Jérémie 31:10" si c\'est ce verset qui justifie la Pensée. Mets le lien explicatif dans "lien"':'références classiques LS1910 de cette péricope (celles en tête dans les Bibles annotées), restreintes au(x) seul(s) verset(s) qui justifie(nt) la Pensée'}
 - La Volonté de Dieu = soit la cause (pourquoi Dieu agit) soit la conséquence (ce qui résulte) de la Pensée
 
 RÈGLES DE RIGUEUR SUR LES TEXTES D'EXPLICATION (à respecter pour CHAQUE texte "at"/"nt") :
@@ -814,7 +819,7 @@ RÈGLES DE RIGUEUR SUR LES TEXTES D'EXPLICATION (à respecter pour CHAQUE texte 
 - N'invente JAMAIS un lien entre deux passages s'il n'est pas clairement démontrable par le texte biblique lui-même ; en cas de doute, choisis un autre passage dont le lien est évident.
 - Lorsque plusieurs interprétations légitimes existent pour un passage, présente-les objectivement dans le champ "lien", avec leurs arguments bibliques respectifs, sans en imposer une seule.
 
-EXHORTATION QUOTIDIENNE ("exhortation") : rédige une exhortation courte, vivante et partageable (lisible sur WhatsApp ou en méditation), structurée en 4 volets autour du personnage ou du sujet central de la péricope. A=SON HISTOIRE (texte d'histoire), B=CE QU'IL A FAIT (texte de loi/enseignement), C=CE QUE CELA A PRODUIT (texte prophétique), D=LE MODÈLE QU'IL LAISSE (texte de poésie/sagesse) ; RÉUTILISE de préférence les textes déjà choisis dans les périodes correspondantes. Termine par une application directe et personnelle au lecteur, ancrée dans un verset DE LA PÉRICOPE. Style : français courant, chaleureux et direct, bibliquement ancré à chaque volet, sans jargon théologique inutile.
+EXHORTATION QUOTIDIENNE ("exhortation") : rédige une exhortation courte, vivante et partageable (lisible sur WhatsApp ou en méditation), structurée en 4 volets autour du personnage ou du sujet central de la péricope. A=SON HISTOIRE (texte d'histoire), B=CE QU'IL A FAIT (texte de loi/enseignement), C=CE QUE CELA A PRODUIT (texte prophétique), D=LE MODÈLE QU'IL LAISSE (texte de poésie/sagesse) ; RÉUTILISE de préférence les textes déjà choisis dans les périodes correspondantes. Termine par une application directe et personnelle au lecteur, ancrée dans un verset DE LA PÉRICOPE. Style : français courant, chaleureux et direct, bibliquement ancré à chaque volet, sans jargon théologique inutile. EN PLUS des 4 volets, renseigne OBLIGATOIREMENT "exhortation.recit" : la MÊME exhortation rédigée comme UN SEUL texte fluide qui enchaîne les 4 périodes avec des phrases de transition entre chacune et se termine par l'application personnelle — c'est CE texte qui sera partagé sur WhatsApp.
 
 - Réponds UNIQUEMENT avec le JSON, aucun texte avant ni après, aucun markdown`;
   try{
@@ -832,19 +837,24 @@ EXHORTATION QUOTIDIENNE ("exhortation") : rédige une exhortation courte, vivant
     const raw=data.content[0].text.trim().replace(/^```json?\s*/,'').replace(/\s*```$/,'');
     const study=JSON.parse(raw);
 
-    // L'IA a parfois tendance à simplifier/raccourcir une référence groupée
-    // (ex. "Ésaïe 19:1, 16" -> "Ésaïe 19:1") en recopiant les preuves. On
-    // reconstruit donc "preuves" directement à partir de la liste exacte de
-    // références croisées (crossRefList), dans le même ordre, en ne gardant
-    // de l'IA que son "lien" explicatif (positionnel) — la référence elle-même
-    // est désormais TOUJOURS la nôtre, jamais une recopie potentiellement altérée.
+    // On part de la liste exacte de références croisées (crossRefList), dans le
+    // même ordre, et on autorise l'IA à RESTREINDRE chaque référence au(x)
+    // verset(s) précis qui justifie(nt) la Pensée — mais UNIQUEMENT si sa
+    // version reste dans le MÊME livre + chapitre que l'originale (sinon on
+    // garde l'originale, pour empêcher toute invention ou changement de passage).
     if(crossRefList.length){
       const aiPreuves=Array.isArray(study.preuves)?study.preuves:[];
-      study.preuves=crossRefList.map((r,i)=>({
-        ref:r,
-        texte:(aiPreuves[i]&&aiPreuves[i].texte)||'',
-        lien:(aiPreuves[i]&&aiPreuves[i].lien)||''
-      }));
+      const refPrefix=(r)=>{const m=(r||'').match(/^(.*?\d+):/);return m?m[1]+':':''};
+      study.preuves=crossRefList.map((r,i)=>{
+        const ai=aiPreuves[i]||{};
+        const aiRef=(ai.ref||'').trim();
+        const ok=aiRef&&refPrefix(aiRef)&&refPrefix(aiRef)===refPrefix(r);
+        return {
+          ref: ok?aiRef:r,
+          texte:'',
+          lien:(ai.lien)||''
+        };
+      });
     }
 
     // Remplace le texte rédigé par l'IA par le texte EXACT Louis Segond 1910
@@ -1002,17 +1012,26 @@ function renderStudy(s){
       </div>`;
     };
     const ap=ex.application||{};
-    const apHtml=(ap.message||ap.texte)?`<div class="exhort-appli">
-      <div class="exhort-appli-lbl">🎯 Application personnelle</div>
-      <div class="exhort-appli-txt">${ap.message||''}</div>
-      ${ap.ref?`<div class="exhort-appli-ref">🔗 ${ap.ref}${ap.texte?' — « '+ap.texte+' »':''}</div>`:''}
-    </div>`:'';
-    const body=volet(ex.histoire,'va','A','Son histoire')
+    const recit=(ex.recit||'').trim();
+    const refList=[ex.histoire,ex.acte,ex.consequence,ex.modele,ap].map(o=>o&&o.ref?o.ref:null).filter(Boolean);
+    const refsHtml=refList.length?`<div class="exhort-refs">📖 Références : ${refList.join(' · ')}</div>`:'';
+    const shareBtns=`<div class="exhort-share">
+      <button class="ws-btn" onclick="shareExhortation('whatsapp')">🟢 WhatsApp</button>
+      <button class="cp-btn" onclick="shareExhortation('copy')">📋 Copier</button>
+    </div>`;
+    const head=recit
+      ? `<div class="exhort-recit"><div class="exhort-recit-lbl">🦅 À méditer & partager</div>${recit}${refsHtml}</div>`
+      : `<div class="exhort-intro">Une méditation courte et partageable autour du personnage central de la péricope.</div>`;
+    const volets=volet(ex.histoire,'va','A','Son histoire')
       +volet(ex.acte,'vb','B',"Ce qu'il a fait")
       +volet(ex.consequence,'vc','C','Ce que cela a produit')
-      +volet(ex.modele,'vd','D','Le modèle qu'+"'"+'il laisse')
-      +apHtml;
-    if(body.trim()){
+      +volet(ex.modele,'vd','D','Le modèle qu'+"'"+'il laisse');
+    const apHtml=ap.message?`<div class="exhort-volet vd">
+      <div class="exhort-volet-titre" style="color:var(--gold)">🎯 Pour toi aujourd'hui</div>
+      <div class="exhort-volet-txt">${ap.message}</div>
+      ${ap.ref?`<button class="exhort-volet-ref" style="color:var(--gold)" onclick="showModal('${escAttr(ap.ref)}','${escAttr(ap.texte)}')">🔗 ${ap.ref}</button>`:''}
+    </div>`:'';
+    if(recit||volets.trim()||ap.message){
       exhortHtml=`<div class="section exhort-sec">
         <div class="sec-head" onclick="toggleSec('exhort')">
           🦅 Exhortation quotidienne
@@ -1020,12 +1039,11 @@ function renderStudy(s){
         </div>
         <div class="sec-body collapsed" id="sec_exhort">
           ${ex.personnage?`<div class="exhort-perso">✨ ${ex.personnage}</div>`:''}
-          <div class="exhort-intro">Une méditation courte et partageable, en 4 volets, autour du personnage central de la péricope.</div>
-          ${body}
-          <div class="exhort-share">
-            <button class="ws-btn" onclick="shareExhortation('whatsapp')">🟢 WhatsApp</button>
-            <button class="cp-btn" onclick="shareExhortation('copy')">📋 Copier</button>
-          </div>
+          ${head}
+          ${shareBtns}
+          ${(volets.trim()||apHtml)?'<div class="exhort-breakdown-lbl">Le détail, période par période</div>':''}
+          ${volets}
+          ${apHtml}
         </div>
       </div>`;
     }
@@ -1272,22 +1290,26 @@ function buildExhortationText(){
   if(!currentStudy||!currentStudy.exhortation)return'';
   const ex=currentStudy.exhortation;
   const ref=currentStudy.reference||'';
-  const v=(o)=>o&&(o.commentaire||o.texte)?o.commentaire||'':'';
-  let t='🦅 EXHORTATION QUOTIDIENNE — PÉNIEL\n';
-  t+='📖 '+(currentStudy.titre||ref)+' ('+ref+')\n';
-  if(ex.personnage)t+='✨ '+ex.personnage+'\n';
-  t+='\n';
-  if(v(ex.histoire))t+='A. SON HISTOIRE\n'+v(ex.histoire)+(ex.histoire.ref?'\n('+ex.histoire.ref+')':'')+'\n\n';
-  if(v(ex.acte))t+="B. CE QU'IL A FAIT\n"+v(ex.acte)+(ex.acte.ref?'\n('+ex.acte.ref+')':'')+'\n\n';
-  if(v(ex.consequence))t+='C. CE QUE CELA A PRODUIT\n'+v(ex.consequence)+(ex.consequence.ref?'\n('+ex.consequence.ref+')':'')+'\n\n';
-  if(v(ex.modele))t+="D. LE MODÈLE QU'IL LAISSE\n"+v(ex.modele)+(ex.modele.ref?'\n('+ex.modele.ref+')':'')+'\n\n';
   const ap=ex.application||{};
-  if(ap.message||ap.texte){
-    t+='🎯 POUR TOI AUJOURD’HUI\n'+(ap.message||'');
-    if(ap.ref)t+='\n— '+ap.ref+(ap.texte?' : « '+ap.texte+' »':'');
-    t+='\n\n';
+  let t='🦅 EXHORTATION — PÉNIEL\n';
+  t+=(ex.personnage?'✦ '+ex.personnage+' ':'')+'('+ref+')\n\n';
+  const recit=(ex.recit||'').trim();
+  if(recit){
+    // Récit fluide : les 4 périodes enchaînées avec transitions + application.
+    t+=recit+'\n';
+  }else{
+    // Repli (anciennes études sans "recit") : on assemble les 4 volets.
+    const v=(o)=>o&&o.commentaire?o.commentaire:'';
+    if(v(ex.histoire))t+='A. SON HISTOIRE\n'+v(ex.histoire)+(ex.histoire.ref?'\n('+ex.histoire.ref+')':'')+'\n\n';
+    if(v(ex.acte))t+="B. CE QU'IL A FAIT\n"+v(ex.acte)+(ex.acte.ref?'\n('+ex.acte.ref+')':'')+'\n\n';
+    if(v(ex.consequence))t+='C. CE QUE CELA A PRODUIT\n'+v(ex.consequence)+(ex.consequence.ref?'\n('+ex.consequence.ref+')':'')+'\n\n';
+    if(v(ex.modele))t+="D. LE MODÈLE QU'IL LAISSE\n"+v(ex.modele)+(ex.modele.ref?'\n('+ex.modele.ref+')':'')+'\n\n';
+    if(ap.message)t+="🎯 POUR TOI AUJOURD'HUI\n"+ap.message+(ap.ref?'\n— '+ap.ref:'')+'\n';
   }
-  t+='— PÉNIEL · Étude biblique';
+  // Références des versets utilisés
+  const refs=[ex.histoire,ex.acte,ex.consequence,ex.modele,ap].map(o=>o&&o.ref?o.ref:null).filter(Boolean);
+  if(refs.length)t+='\n📖 Références : '+refs.join(' · ')+'\n';
+  t+='\n— PÉNIEL · Étude biblique';
   return t;
 }
 function shareExhortation(mode){
