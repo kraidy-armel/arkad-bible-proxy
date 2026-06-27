@@ -34,7 +34,7 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 // error") : on en essaie donc plusieurs jusqu'à ce que l'un réponde. Un modèle
 // inexistant ou en échec est simplement ignoré, on passe au suivant.
 const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS || process.env.OPENROUTER_MODEL ||
-  'deepseek/deepseek-chat-v3-0324:free,meta-llama/llama-3.3-70b-instruct:free,google/gemini-2.0-flash-exp:free,meta-llama/llama-3.1-70b-instruct:free,qwen/qwen-2.5-72b-instruct:free,mistralai/mistral-small-3.2-24b-instruct:free'
+  'nvidia/nemotron-3-ultra-550b-a55b:free,meta-llama/llama-3.3-70b-instruct:free,nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,nex-agi/nex-n2-pro:free'
 ).split(',').map(s => s.trim()).filter(Boolean);
 const GROQ_MODELS = (process.env.GROQ_MODELS || process.env.GROQ_MODEL ||
   'llama-3.3-70b-versatile,llama-3.1-8b-instant'
