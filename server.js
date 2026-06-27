@@ -1,7 +1,16 @@
-// server.js — Proxy Google Gemini pour Arkad Bible
+// server.js — Proxy IA pour PÉNIEL — Étude biblique
 // Rôle : recevoir les requêtes du navigateur (index.html) au format Anthropic,
-// les traduire vers l'API Google Gemini (gratuite), et retourner la réponse
-// au même format Anthropic — sans modifier index.html.
+// les router vers des modèles 100 % gratuits (Groq en primaire, OpenRouter en
+// secours automatique), et retourner la réponse au même format Anthropic —
+// sans modifier index.html.
+//
+// Variables d'environnement Render à configurer :
+//   OPENROUTER_API_KEY  (recommandé)   clé gratuite https://openrouter.ai (login Google/GitHub)
+//   GROQ_API_KEY        (optionnel)    clé gratuite https://console.groq.com → fallback
+//   OPENROUTER_MODEL    (optionnel)    défaut : meta-llama/llama-3.3-70b-instruct:free
+//   GROQ_MODEL          (optionnel)    défaut : llama-3.3-70b-versatile
+// Il suffit d'UNE seule clé pour que l'app fonctionne. On essaie les
+// fournisseurs dans l'ordre ci-dessous et on bascule au suivant en cas d'échec.
 
 const express = require('express');
 const cors = require('cors');
@@ -13,104 +22,122 @@ app.use(cors());
 
 app.use(express.json({ limit: '2mb' }));
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+// ── Fournisseurs IA gratuits (compatibles OpenAI Chat Completions) ──
+// On essaie chaque fournisseur dans l'ordre ; si l'un échoue (erreur réseau,
+// quota atteint, réponse vide), on bascule automatiquement sur le suivant.
+// Les quotas étant indépendants, l'app reste opérationnelle quasi en permanence.
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
+
+const PROVIDERS = [
+  {
+    name: 'openrouter',
+    enabled: () => !!OPENROUTER_API_KEY,
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    model: OPENROUTER_MODEL,
+    headers: () => ({
+      'Authorization': 'Bearer ' + OPENROUTER_API_KEY,
+      'HTTP-Referer': 'https://kraidy-armel.github.io/arkad-bible/',
+      'X-Title': 'PENIEL Etude biblique'
+    })
+  },
+  {
+    name: 'groq',
+    enabled: () => !!GROQ_API_KEY,
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    model: GROQ_MODEL,
+    headers: () => ({ 'Authorization': 'Bearer ' + GROQ_API_KEY })
+  }
+];
+
+// Construit le tableau de messages OpenAI à partir du format Anthropic envoyé
+// par index.html ({ system, messages:[{role, content}] }).
+function toOpenAiMessages(system, messages) {
+  const out = [];
+  if (system) out.push({ role: 'system', content: system });
+  for (const m of (messages || [])) {
+    const content = typeof m.content === 'string'
+      ? m.content
+      : (Array.isArray(m.content) ? m.content.map(c => c.text || '').join('') : '');
+    out.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content });
+  }
+  return out;
+}
+
+// Appelle un fournisseur OpenAI-compatible et renvoie le texte généré.
+async function callProvider(provider, oaMessages, maxTokens) {
+  const resp = await fetch(provider.url, {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, provider.headers()),
+    body: JSON.stringify({
+      model: provider.model,
+      messages: oaMessages,
+      // On plafonne la sortie à 8192 (le JSON d'étude tient dans cette taille,
+      // comme c'était déjà le cas sous Gemini) pour rester sous les limites
+      // tokens/minute des paliers gratuits.
+      max_tokens: Math.min(maxTokens || 8192, 8192),
+      temperature: 0.3
+    })
+  });
+
+  let data;
+  try { data = await resp.json(); }
+  catch (e) { throw new Error('Réponse non-JSON (HTTP ' + resp.status + ')'); }
+
+  if (!resp.ok) {
+    const msg = (data && data.error && (data.error.message || data.error)) || ('HTTP ' + resp.status);
+    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+  }
+
+  const choice = data.choices && data.choices[0];
+  const text = choice && choice.message ? (choice.message.content || '') : '';
+  if (!text) throw new Error('Réponse vide du fournisseur ' + provider.name);
+  return text;
+}
 
 // Route de vérification
 app.get('/', (req, res) => {
-  res.send('✅ EFBC Mission God proxy (Gemini) en ligne.');
+  const active = PROVIDERS.filter(p => p.enabled()).map(p => p.name + ' (' + p.model + ')');
+  const txt = active.length
+    ? 'Fournisseurs actifs : ' + active.join(' → ')
+    : 'Aucune clé configurée — ajoutez GROQ_API_KEY (et éventuellement OPENROUTER_API_KEY) dans Render.';
+  res.send('✅ PÉNIEL — proxy IA en ligne. ' + txt);
 });
 
-// Route appelée par index.html — accepte le format Anthropic, répond en format Anthropic.
-// En interne, traduit vers l'API Gemini (gratuite et rapide).
+// Route appelée par index.html — accepte le format Anthropic, répond en format
+// Anthropic. En interne, route vers Groq puis OpenRouter (fallback automatique).
 app.post('/api/messages', async (req, res) => {
-  if (!GEMINI_API_KEY) {
+  const active = PROVIDERS.filter(p => p.enabled());
+  if (!active.length) {
     return res.status(500).json({
-      error: { message: "GEMINI_API_KEY manquante. Configurez-la dans les variables d'environnement Render." }
+      error: { message: "Aucune clé IA configurée. Ajoutez GROQ_API_KEY (et éventuellement OPENROUTER_API_KEY) dans les variables d'environnement Render." }
     });
   }
 
-  // ── Mode pass-through Anthropic ────────────────────────────────────────────
-  if (process.env.USE_ANTHROPIC === 'true') {
-    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-    if (!ANTHROPIC_KEY) return res.status(500).json({ error: { message: 'ANTHROPIC_API_KEY manquante.' } });
+  const { system, messages = [], max_tokens } = req.body;
+  const oaMessages = toOpenAiMessages(system, messages);
+
+  const errors = [];
+  for (const provider of active) {
     try {
-      const aResp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: req.body.model || 'claude-haiku-4-5-20251001',
-          max_tokens: req.body.max_tokens || 8192,
-          system: req.body.system,
-          messages: req.body.messages
-        })
+      const text = await callProvider(provider, oaMessages, max_tokens);
+      return res.json({
+        content: [{ type: 'text', text }],
+        model: provider.name + ':' + provider.model,
+        stop_reason: 'end_turn'
       });
-      const aData = await aResp.json();
-      if (!aResp.ok) return res.status(aResp.status).json({ error: { message: aData.error?.message || 'Erreur Anthropic' } });
-      return res.json(aData);
     } catch (err) {
-      return res.status(500).json({ error: { message: 'Erreur proxy Anthropic : ' + err.message } });
+      console.error('Fournisseur ' + provider.name + ' en échec : ' + err.message);
+      errors.push(provider.name + ': ' + err.message);
+      // on passe au fournisseur suivant (fallback)
     }
   }
 
-  try {
-    // ── Traduction format Anthropic → Gemini ──────────────────────────────────
-    const { system, messages = [], max_tokens } = req.body;
-
-    // Instruction système (optionnelle)
-    const systemInstruction = system
-      ? { parts: [{ text: system }] }
-      : undefined;
-
-    // Conversion des messages : role "assistant" → "model" pour Gemini
-    const contents = messages.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: typeof m.content === 'string' ? m.content : m.content.map(c => c.text || '').join('') }]
-    }));
-
-    const geminiBody = {
-      contents,
-      generationConfig: {
-        maxOutputTokens: max_tokens || 8192,
-        temperature: 0.3
-      }
-    };
-    if (systemInstruction) geminiBody.systemInstruction = systemInstruction;
-
-    // ── Appel Gemini ──────────────────────────────────────────────────────────
-    const geminiResponse = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiBody)
-    });
-
-    const geminiData = await geminiResponse.json();
-
-    if (!geminiResponse.ok) {
-      console.error('Erreur Gemini:', JSON.stringify(geminiData));
-      return res.status(geminiResponse.status).json({
-        error: { message: geminiData.error?.message || 'Erreur Gemini inconnue' }
-      });
-    }
-
-    // ── Traduction réponse Gemini → format Anthropic ──────────────────────────
-    const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const anthropicCompatible = {
-      content: [{ type: 'text', text }],
-      model: GEMINI_MODEL,
-      stop_reason: 'end_turn'
-    };
-
-    res.json(anthropicCompatible);
-  } catch (err) {
-    console.error('Erreur proxy Gemini:', err);
-    res.status(500).json({ error: { message: 'Erreur du proxy : ' + err.message } });
-  }
+  res.status(502).json({
+    error: { message: 'Tous les fournisseurs IA ont échoué. ' + errors.join(' | ') }
+  });
 });
 
 // ── RÉFÉRENCES CROISÉES (cross-references) ──
@@ -220,8 +247,6 @@ for (const [k, v] of Object.entries(EXTRA_ALIASES)) {
   FR_TO_OSIS[stripAccents(k)] = v;
 }
 
-const SINGLE_CHAPTER_OSIS = new Set(['Obad','Phlm','2John','3John','Jude']);
-
 // Accepte aussi bien "Livre ch:v", "Livre ch:v1-v2" que les références
 // groupées non-contiguës "Livre ch:v1, v2" / "Livre ch:v1-v3, v8" (telles que
 // produites par mergeAndFormatRefs pour les "preuves"). `ranges` contient
@@ -239,17 +264,8 @@ function parseFrenchRef(ref) {
     book = m[1]; chapter = parseInt(m[2], 10); versesStr = m[3];
   } else {
     m = s.match(/^(.*\S)\s+(\d+)$/);
-  if (!m) {
-    const m3 = s.match(/^(.+\S)\s+([\d,\s\u2013-]+)$/);
-    if (!m3) return null;
-    const potO = FR_TO_OSIS[stripAccents(m3[1])];
-    if (!potO || !SINGLE_CHAPTER_OSIS.has(potO)) return null;
-    book = m3[1]; chapter = 1; versesStr = m3[2];
-  } else {
+    if (!m) return null;
     book = m[1]; chapter = parseInt(m[2], 10);
-    const potO2 = FR_TO_OSIS[stripAccents(book)];
-    if (potO2 && SINGLE_CHAPTER_OSIS.has(potO2)) { versesStr = String(chapter); chapter = 1; }
-  }
   }
   const osis = FR_TO_OSIS[stripAccents(book)];
   if (!osis) return null;
@@ -300,9 +316,6 @@ async function loadCrossRefIndex() {
 
 function formatFrRef(osisBook, chap1, v1, chap2, v2) {
   const fr = OSIS_TO_FR[osisBook] || osisBook;
-  if (SINGLE_CHAPTER_OSIS.has(osisBook)) {
-    return v1 === v2 ? fr+' '+v1 : fr+' '+v1+'-'+v2;
-  }
   if (chap1 === chap2) {
     return v1 === v2 ? `${fr} ${chap1}:${v1}` : `${fr} ${chap1}:${v1}-${v2}`;
   }
@@ -435,7 +448,7 @@ const ABBREV_TO_OSIS = {
   mt:'Matt', mc:'Mark', lu:'Luke', jn:'John', ac:'Acts', ro:'Rom', '1co':'1Cor', '2co':'2Cor',
   ga:'Gal', ep:'Eph', ph:'Phil', col:'Col', '1th':'1Thess', '2th':'2Thess', '1ti':'1Tim', '2ti':'2Tim',
   tit:'Titus', phm:'Phlm', he:'Heb', ja:'Jas', '1pi':'1Pet', '2pi':'2Pet',
-  '1jn':'1John', '2jn':'2John', '3jn':'3John', jude:'Jude', jud:'Jude', ap:'Rev'
+  '1jn':'1John', '2jn':'2John', '3jn':'3John', jude:'Jude', ap:'Rev'
 };
 
 // Découpe une liste de versets façon "9-20" ou "9, 10" ou "9-11, 15" en
@@ -473,7 +486,6 @@ function mergeRanges(ranges) {
 // groupée — exactement comme elle est imprimée dans la Bible Segond — plutôt
 // que d'être éclatée en plusieurs cartes "preuves" séparées.
 function parseXtRefs(raw) {
-  raw = raw.replace(/ v\. /g, ' ');
   const refs = [];
   const segments = raw.split('.').map(s => s.trim()).filter(Boolean);
   for (const seg of segments) {
@@ -488,29 +500,14 @@ function parseXtRefs(raw) {
         if (osis) currentOsis = osis;
         chapter = parseInt(m[2], 10);
         versesStr = m[3];
+      } else if (currentOsis) {
+        const m2 = part.match(/^(\d+):\s*([\d,\s–-]+)/);
+        if (!m2) continue;
+        osis = currentOsis;
+        chapter = parseInt(m2[1], 10);
+        versesStr = m2[2];
       } else {
-        const m2 = currentOsis && part.match(/^(\d+):\s*([\d,\s\u2013-]+)/);
-        if (m2) {
-          osis = currentOsis;
-          chapter = parseInt(m2[1], 10);
-          versesStr = m2[2];
-        } else {
-          const msc = part.match(/^(\d\s?[A-Za-z\u00C0-\u00FF]+|[A-Za-z\u00C0-\u00FF]+)\s+([\d,\s\u2013-]+)$/);
-          if (msc) {
-            const ak2 = stripAccents(msc[1]).replace(/\s+/g,"");
-            const po = ABBREV_TO_OSIS[ak2];
-            if (po && SINGLE_CHAPTER_OSIS.has(po)) {
-              osis=po; currentOsis=osis; chapter=1; versesStr=msc[2];
-            } else {
-              const chap = parseInt(msc[2].trim(), 10);
-              if (!isNaN(chap) && msc[2].trim() === String(chap)) {
-                refs.push({ osis: po, chapter: chap, ranges: [] });
-                currentOsis = po;
-              }
-              continue;
-            }
-          } else { continue; }
-        }
+        continue;
       }
       if (!osis) continue;
       const ranges = mergeRanges(parseVerseList(versesStr));
@@ -525,8 +522,6 @@ function parseXtRefs(raw) {
 function formatFrRefRanges(osisBook, chapter, ranges) {
   const fr = OSIS_TO_FR[osisBook] || osisBook;
   const parts = ranges.map(r => r.verseStart === r.verseEnd ? `${r.verseStart}` : `${r.verseStart}-${r.verseEnd}`);
-  if (SINGLE_CHAPTER_OSIS.has(osisBook)) return fr+' '+parts.join(', ');
-  if (!ranges.length) return `${fr} ${chapter}`;
   return `${fr} ${chapter}:${parts.join(', ')}`;
 }
 
@@ -677,18 +672,15 @@ async function loadLsgIndex() {
     const sectionIdx = new Map();
     const results = await Promise.all(LSG_BOOKS.map(async ([num, , usfm3]) => {
       const url = `${LSG_BASE_URL}${num}-${usfm3}.p.sfm`;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const resp = await fetch(url);
-          if (!resp.ok) { console.error(`LSG: échec ${usfm3} (${resp.status})`); return null; }
-          const text = await resp.text();
-          return parseSfmFile(text, usfm3);
-        } catch (e) {
-          console.error(`LSG: erreur ${usfm3} (tentative ${attempt}/3): ${e.message}`);
-          if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
-        }
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) { console.error(`LSG: échec ${usfm3} (${resp.status})`); return null; }
+        const text = await resp.text();
+        return parseSfmFile(text, usfm3);
+      } catch (e) {
+        console.error(`LSG: erreur ${usfm3}: ${e.message}`);
+        return null;
       }
-      return null;
     }));
     for (const book of results) {
       if (!book) continue;
@@ -807,7 +799,5 @@ app.get('/api/classify-ref', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Proxy EFBC Mission God en écoute sur le port ${PORT}`);
-  // Pré-charge l'index LSG dès le démarrage pour éviter les échecs au démarrage à froid
-  loadLsgIndex().then(() => console.log('LSG1910 pré-chargé avec succès.')).catch(err => console.error('Pré-chargement LSG échoué (sera retenté à la 1re requête):', err.message));
+  console.log(`Proxy PÉNIEL — Étude biblique en écoute sur le port ${PORT}`);
 });
