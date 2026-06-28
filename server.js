@@ -34,7 +34,7 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 // Listes de modèles essayés DANS L'ORDRE (séparés par des virgules). On essaie
 // chaque modèle jusqu'à ce que l'un réponde ; un modèle inexistant, saturé ou
 // en échec est simplement ignoré, on passe au suivant.
-const GITHUB_MODELS = (process.env.GITHUB_MODELS || 'openai/gpt-4o-mini,openai/gpt-4o')
+const GITHUB_MODELS = (process.env.GITHUB_MODELS || 'openai/gpt-4o,openai/gpt-4o-mini')
   .split(',').map(s => s.trim()).filter(Boolean);
 const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS || process.env.OPENROUTER_MODEL ||
   'meta-llama/llama-3.3-70b-instruct:free,nvidia/nemotron-3-ultra-550b-a55b:free'
