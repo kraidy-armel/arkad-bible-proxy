@@ -918,6 +918,14 @@ EXHORTATION QUOTIDIENNE ("exhortation") : rédige une exhortation courte, vivant
           lien:(ai.lien)||''
         };
       });
+      // Dédoublonnage final : si deux références (ou deux restrictions de l'IA)
+      // aboutissent au même verset, on ne garde que la première occurrence.
+      const _seenP=new Set();
+      study.preuves=study.preuves.filter(p=>{
+        const k=(p.ref||'').replace(/\s+/g,' ').trim();
+        if(!k||_seenP.has(k))return false;
+        _seenP.add(k); return true;
+      });
     }
 
     // Remplace le texte rédigé par l'IA par le texte EXACT Louis Segond 1910

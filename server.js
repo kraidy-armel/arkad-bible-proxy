@@ -575,10 +575,13 @@ function mergeAndFormatRefs(items, limit) {
   const seen = new Set();
   const out = [];
   for (const it of items) {
-    const key = `${it.osis}.${it.chapter}.${it.ranges.map(r => r.verseStart + '-' + r.verseEnd).join(',')}`;
-    if (seen.has(key)) continue;
+    const formatted = formatFrRefRanges(it.osis, it.chapter, it.ranges);
+    // Déduplication sur le TEXTE FINAL affiché (évite tout doublon visible,
+    // ex. "Deutéronome 32:1" provenant à la fois de la note de section et d'une note \xt).
+    const key = formatted.replace(/\s+/g, ' ').trim();
+    if (!key || seen.has(key)) continue;
     seen.add(key);
-    out.push(formatFrRefRanges(it.osis, it.chapter, it.ranges));
+    out.push(formatted);
     if (out.length >= limit) break;
   }
   return out;
