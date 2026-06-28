@@ -387,27 +387,27 @@ app.get('/api/cross-refs', async (req, res) => {
       await loadLsgIndex();
       const usfm3 = OSIS_TO_USFM3[parsed.osis];
 
-      // On COMBINE les références imprimées de la Bible Segond : d'abord la note
-      // éditoriale de SECTION ("V. x-y: cf. ..."), puis les notes \xt verset par
-      // verset sur toute la péricope — pour une liste de preuves la plus complète
-      // possible (les doublons sont éliminés par mergeAndFormatRefs).
-      if (usfm3) {
+      // PRIORITÉ : les références croisées IMPRIMÉES EN TÊTE DE PÉRICOPE (note
+      // \r de section). C'est la liste exacte et concise voulue (ex. Psaume 23 :
+      // És 40:11, Éz 34:11-31, Jn 10:10-30, Ap 7:16-17). On NE fusionne PAS les
+      // notes par verset (qui gonfleraient artificiellement la liste).
+      if (usfm3 && lsgSectionXrefIndex) {
         const items = [];
-        if (lsgSectionXrefIndex) {
-          for (let v = vStart; v <= vEnd; v++) {
-            items.push(...(lsgSectionXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || []));
-          }
+        for (let v = vStart; v <= vEnd; v++) {
+          items.push(...(lsgSectionXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || []));
         }
-        const hadSection = items.length > 0;
-        if (lsgXrefIndex) {
-          for (let v = vStart; v <= vEnd; v++) {
-            items.push(...(lsgXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || []));
-          }
+        if (items.length) top = mergeAndFormatRefs(items, 15);
+      }
+
+      // SECOURS 1 : si la péricope n'a pas de note de section, on prend les
+      // notes \xt par verset (agrégées et dédupliquées).
+      if (!top.length && usfm3 && lsgXrefIndex) {
+        source = 'lsg-verse';
+        const items = [];
+        for (let v = vStart; v <= vEnd; v++) {
+          items.push(...(lsgXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || []));
         }
-        if (items.length) {
-          source = hadSection ? 'lsg-section+verse' : 'lsg-verse';
-          top = mergeAndFormatRefs(items, 15);
-        }
+        if (items.length) top = mergeAndFormatRefs(items, 12);
       }
     } catch (e) {
       console.error('Erreur lecture xrefs LSG:', e);
@@ -596,7 +596,9 @@ function mergeAndFormatRefs(items, limit) {
 function parseSfmFile(text, usfm3) {
   const verses = new Map(); // `${chapter}.${verse}` -> texte brut accumulé
   const xrefRaw = new Map(); // `${chapter}.${verse}` -> contenu brut des notes \xt
-  const sectionRefsRaw = new Map(); // chapter -> [{vStart, vEnd, refsText}] (notes \r de section)
+  const sectionMarkers = new Map(); // chapter -> [{startVerse, explicitEnd|null, refsText}]
+  const maxVerseByChap = new Map(); // chapter -> dernier numéro de verset vu
+  let pendingSectionText = null;    // note \r générique en attente de son verset de départ
   let chapter = null;
   let currentKey = null;
   let noteDepth = 0; // >0 = à l'intérieur d'une note \x...\x* ou \f...\f* (à ignorer)
@@ -656,26 +658,37 @@ function parseSfmFile(text, usfm3) {
     if (pendingExpect === 'verseNum') {
       const m = str.match(/^\s*(\d+)([\s\S]*)$/);
       if (m) {
-        currentKey = chapter + '.' + parseInt(m[1], 10);
+        const vnum = parseInt(m[1], 10);
+        currentKey = chapter + '.' + vnum;
         str = m[2];
+        if (vnum > (maxVerseByChap.get(chapter) || 0)) maxVerseByChap.set(chapter, vnum);
+        // Une note \r générique en attente démarre sa section à CE verset.
+        if (pendingSectionText !== null) {
+          if (!sectionMarkers.has(chapter)) sectionMarkers.set(chapter, []);
+          sectionMarkers.get(chapter).push({ startVerse: vnum, explicitEnd: null, refsText: pendingSectionText });
+          pendingSectionText = null;
+        }
       }
       pendingExpect = null;
       appendVerseText(str);
       continue;
     }
     if (pendingExpect === 'sectionRef') {
-      // Note de section éditoriale, ex. "V. 14-21: cf. (No 21:4-9. Jn 12:32, 33.) ..."
-      // C'est la référence croisée IMPRIMÉE pour toute la péricope, bien plus
-      // pertinente que d'agréger les notes individuelles de chaque verset.
+      // Note de section éditoriale \r = références croisées IMPRIMÉES en tête de
+      // péricope. Deux formats coexistent dans la Segond :
+      //  - "V. 14-21: cf. (No 21:4-9. Jn 12:32, 33.)" → plage explicite
+      //  - "És 40:11. Éz 34:11-31. Jn 10:10-30." (Psaumes…) → la section va du
+      //    prochain verset jusqu'à la prochaine note \r (ou la fin du chapitre).
       pendingExpect = null;
       const raw = str.trim();
       const m = raw.match(/^V\.?\s*(\d+)(?:[-–](\d+))?\s*:\s*cf\.?\s*([\s\S]*)$/i);
       if (m) {
         const vStart = parseInt(m[1], 10);
         const vEnd = m[2] ? parseInt(m[2], 10) : vStart;
-        const refsText = m[3].replace(/[()]/g, '');
-        if (!sectionRefsRaw.has(chapter)) sectionRefsRaw.set(chapter, []);
-        sectionRefsRaw.get(chapter).push({ vStart, vEnd, refsText });
+        if (!sectionMarkers.has(chapter)) sectionMarkers.set(chapter, []);
+        sectionMarkers.get(chapter).push({ startVerse: vStart, explicitEnd: vEnd, refsText: m[3].replace(/[()]/g, '') });
+      } else if (raw) {
+        pendingSectionText = raw.replace(/[()]/g, '');
       }
       continue;
     }
@@ -694,16 +707,26 @@ function parseSfmFile(text, usfm3) {
   }
   const sectionXrefs = new Map();
   const sectionRanges = new Map(); // verset -> {vStart, vEnd} de SA section (péricope imprimée)
-  for (const [chap, sections] of sectionRefsRaw.entries()) {
-    for (const sec of sections) {
-      // Les bornes de section servent à déterminer la péricope, même si la
-      // section n'a pas de références croisées.
-      for (let v = sec.vStart; v <= sec.vEnd; v++) {
-        sectionRanges.set(usfm3 + '.' + chap + '.' + v, { vStart: sec.vStart, vEnd: sec.vEnd });
+  for (const [chap, markers] of sectionMarkers.entries()) {
+    const sorted = markers.slice().sort((a, b) => a.startVerse - b.startVerse);
+    const maxV = maxVerseByChap.get(chap) || 0;
+    for (let i = 0; i < sorted.length; i++) {
+      const sec = sorted[i];
+      const vStart = sec.startVerse;
+      let vEnd;
+      if (sec.explicitEnd != null) {
+        vEnd = sec.explicitEnd;
+      } else {
+        const nextStart = (i + 1 < sorted.length) ? sorted[i + 1].startVerse : null;
+        vEnd = nextStart ? (nextStart - 1) : (maxV || vStart);
+      }
+      if (vEnd < vStart) vEnd = vStart;
+      for (let v = vStart; v <= vEnd; v++) {
+        sectionRanges.set(usfm3 + '.' + chap + '.' + v, { vStart, vEnd });
       }
       const list = parseXtRefs(sec.refsText);
       if (!list.length) continue;
-      for (let v = sec.vStart; v <= sec.vEnd; v++) {
+      for (let v = vStart; v <= vEnd; v++) {
         sectionXrefs.set(usfm3 + '.' + chap + '.' + v, list);
       }
     }
