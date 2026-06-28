@@ -387,27 +387,27 @@ app.get('/api/cross-refs', async (req, res) => {
       await loadLsgIndex();
       const usfm3 = OSIS_TO_USFM3[parsed.osis];
 
-      // Priorité 0 : note éditoriale de SECTION ("V. 14-21: cf. ..."), qui correspond
-      // à la péricope entière plutôt qu'à un seul verset — c'est la référence la plus
-      // fidèle à ce qu'on trouve imprimé dans une Bible Segond annotée.
-      if (usfm3 && lsgSectionXrefIndex) {
+      // On COMBINE les références imprimées de la Bible Segond : d'abord la note
+      // éditoriale de SECTION ("V. x-y: cf. ..."), puis les notes \xt verset par
+      // verset sur toute la péricope — pour une liste de preuves la plus complète
+      // possible (les doublons sont éliminés par mergeAndFormatRefs).
+      if (usfm3) {
         const items = [];
-        for (let v = vStart; v <= vEnd; v++) {
-          const list = lsgSectionXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || [];
-          items.push(...list);
+        if (lsgSectionXrefIndex) {
+          for (let v = vStart; v <= vEnd; v++) {
+            items.push(...(lsgSectionXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || []));
+          }
         }
-        top = mergeAndFormatRefs(items, 12);
-      }
-
-      // Priorité 1 : à défaut, les notes \xt par verset (agrégées sur la plage demandée)
-      if (!top.length && usfm3 && lsgXrefIndex) {
-        source = 'lsg-verse';
-        const items = [];
-        for (let v = vStart; v <= vEnd; v++) {
-          const list = lsgXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || [];
-          items.push(...list);
+        const hadSection = items.length > 0;
+        if (lsgXrefIndex) {
+          for (let v = vStart; v <= vEnd; v++) {
+            items.push(...(lsgXrefIndex.get(usfm3 + '.' + parsed.chapter + '.' + v) || []));
+          }
         }
-        top = mergeAndFormatRefs(items, 12);
+        if (items.length) {
+          source = hadSection ? 'lsg-section+verse' : 'lsg-verse';
+          top = mergeAndFormatRefs(items, 15);
+        }
       }
     } catch (e) {
       console.error('Erreur lecture xrefs LSG:', e);
