@@ -690,8 +690,14 @@ function parseSfmFile(text, usfm3) {
     if (list.length) xrefs.set(usfm3 + '.' + k, list);
   }
   const sectionXrefs = new Map();
+  const sectionRanges = new Map(); // verset -> {vStart, vEnd} de SA section (péricope imprimée)
   for (const [chap, sections] of sectionRefsRaw.entries()) {
     for (const sec of sections) {
+      // Les bornes de section servent à déterminer la péricope, même si la
+      // section n'a pas de références croisées.
+      for (let v = sec.vStart; v <= sec.vEnd; v++) {
+        sectionRanges.set(usfm3 + '.' + chap + '.' + v, { vStart: sec.vStart, vEnd: sec.vEnd });
+      }
       const list = parseXtRefs(sec.refsText);
       if (!list.length) continue;
       for (let v = sec.vStart; v <= sec.vEnd; v++) {
@@ -699,12 +705,13 @@ function parseSfmFile(text, usfm3) {
       }
     }
   }
-  return { texts, xrefs, sectionXrefs };
+  return { texts, xrefs, sectionXrefs, sectionRanges };
 }
 
 let lsgIndex = null;
 let lsgXrefIndex = null;
 let lsgSectionXrefIndex = null;
+let lsgSectionRangeIndex = null;
 let lsgLoading = null;
 
 async function loadLsgIndex() {
@@ -714,6 +721,7 @@ async function loadLsgIndex() {
     const idx = new Map();
     const xrefIdx = new Map();
     const sectionIdx = new Map();
+    const sectionRangeIdx = new Map();
     const results = await Promise.all(LSG_BOOKS.map(async ([num, , usfm3]) => {
       const url = `${LSG_BASE_URL}${num}-${usfm3}.p.sfm`;
       try {
@@ -731,10 +739,12 @@ async function loadLsgIndex() {
       for (const [k, v] of book.texts.entries()) idx.set(k, v);
       for (const [k, v] of book.xrefs.entries()) xrefIdx.set(k, v);
       for (const [k, v] of book.sectionXrefs.entries()) sectionIdx.set(k, v);
+      for (const [k, v] of book.sectionRanges.entries()) sectionRangeIdx.set(k, v);
     }
     lsgIndex = idx;
     lsgXrefIndex = xrefIdx;
     lsgSectionXrefIndex = sectionIdx;
+    lsgSectionRangeIndex = sectionRangeIdx;
     console.log(`LSG1910 chargé : ${idx.size} versets indexés, ${xrefIdx.size} versets avec xrefs, ${sectionIdx.size} versets avec note de section.`);
     return idx;
   })().catch(err => {
@@ -820,6 +830,33 @@ const OSIS_TO_PERIODE = {
 };
 const OT_OSIS_SET = new Set(LSG_BOOKS.slice(0, 39).map(b => b[1]));
 function zoneOfOsis(osis) { return OT_OSIS_SET.has(osis) ? 'at' : 'nt'; }
+
+// GET /api/pericope?ref=Ésaïe 1:1
+// Renvoie les bornes de la péricope (la section imprimée « V. x-y » de la
+// Bible Segond) qui contient le verset demandé — pour ne pas laisser le modèle
+// estimer la plage. { found:true, pericope:"Ésaïe 1:1-9", verseStart, verseEnd }
+app.get('/api/pericope', async (req, res) => {
+  try {
+    const ref = (req.query.ref || '').toString();
+    const parsed = parseFrenchRef(ref);
+    if (!parsed) return res.status(400).json({ error: { message: 'Référence non reconnue : ' + ref } });
+    await loadLsgIndex();
+    const usfm3 = OSIS_TO_USFM3[parsed.osis];
+    const v = parsed.verseStart || 1;
+    const range = (usfm3 && lsgSectionRangeIndex)
+      ? lsgSectionRangeIndex.get(usfm3 + '.' + parsed.chapter + '.' + v)
+      : null;
+    if (!range) return res.json({ ref, found: false });
+    const fr = OSIS_TO_FR[parsed.osis] || parsed.osis;
+    const pericope = range.vStart === range.vEnd
+      ? `${fr} ${parsed.chapter}:${range.vStart}`
+      : `${fr} ${parsed.chapter}:${range.vStart}-${range.vEnd}`;
+    res.json({ ref, found: true, pericope, verseStart: range.vStart, verseEnd: range.vEnd });
+  } catch (err) {
+    console.error('Erreur pericope:', err);
+    res.status(500).json({ error: { message: 'Erreur pericope : ' + err.message } });
+  }
+});
 
 // GET /api/classify-ref?ref=Romains 8:28
 app.get('/api/classify-ref', async (req, res) => {

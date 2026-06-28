@@ -160,8 +160,10 @@ html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:
   color:var(--gold-light);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;
 }
 .requested-note{font-size:11px;color:var(--ink3);margin-top:4px;font-style:italic}
-.preuve-item{padding:9px 0;border-bottom:0.5px solid var(--border);display:flex;align-items:flex-start;gap:9px}
-.preuve-item:last-child{border-bottom:none}
+.preuve-block{padding:9px 0;border-bottom:0.5px solid var(--border)}
+.preuve-block:last-child{border-bottom:none}
+.preuve-item{display:flex;align-items:flex-start;gap:9px}
+.preuve-lien{font-size:11px;color:var(--ink3);line-height:1.5;margin-top:6px;padding-left:2px}
 .preuve-ref{font-size:12px;color:var(--accent);font-weight:700;min-width:95px;padding-top:1px}
 .preuve-prev{font-size:12px;color:var(--ink2);line-height:1.5;flex:1}
 .eye-btn{background:none;border:1px solid rgba(184,134,11,0.25);border-radius:8px;color:var(--gold);cursor:pointer;font-size:16px;padding:4px 8px;flex-shrink:0}
@@ -229,6 +231,8 @@ html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:
 /* ── SAVED SCREEN ── */
 .saved-screen{padding:14px 13px 100px}
 .saved-hdr{font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.9px;margin-bottom:12px}
+.saved-search{width:100%;padding:10px 12px;border:1px solid rgba(30,58,138,0.22);border-radius:10px;font-size:14px;color:var(--ink);background:var(--parch);margin-bottom:12px;outline:none;-webkit-appearance:none}
+.saved-search:focus{border-color:var(--gold);background:#f5f8ff}
 .account-banner{margin-bottom:12px;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.5;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .account-banner.guest{background:rgba(184,134,11,0.08);border:1px solid rgba(184,134,11,0.25);color:var(--ink2)}
 .account-banner.logged{background:rgba(45,90,39,0.08);border:1px solid rgba(45,90,39,0.25);color:var(--ink2)}
@@ -432,6 +436,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:#0a1330;font-family:
     <div class="saved-screen">
       <div class="saved-hdr">🔖 Mes études enregistrées</div>
       <div class="account-banner guest" id="accountBanner"></div>
+      <input id="savedSearch" class="saved-search" type="text" placeholder="🔍 Rechercher (titre, référence, pensée)…" autocomplete="off" oninput="renderSaved()" />
       <div id="savedList"></div>
     </div>
   </div>
@@ -646,7 +651,18 @@ async function genererEtude(ref,titre,forcedPenseeRef){
   startLoadingAnim();
   ['input','study','saved'].forEach(id=>document.getElementById('screen-'+id).classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  // Récupère les vraies références croisées (OpenBible.info) avant de construire le prompt,
+  // Si l'utilisateur a saisi UN SEUL verset, on remplace par les bornes exactes
+  // de la péricope (note de section imprimée de la Bible Segond), au lieu de
+  // laisser le modèle estimer la plage.
+  const requestedRef=ref;
+  if(/[:.]\d+$/.test(ref)&&!/[-–]/.test(ref)){
+    try{
+      const pUrl=PROXY_URL.replace('/api/messages','/api/pericope')+'?ref='+encodeURIComponent(ref);
+      const pResp=await fetch(pUrl);
+      if(pResp.ok){ const pData=await pResp.json(); if(pData&&pData.found&&pData.pericope) ref=pData.pericope; }
+    }catch(e){ /* on garde le verset saisi si l'appel échoue */ }
+  }
+  // Récupère les vraies références croisées avant de construire le prompt,
   // pour que la section "preuves" soit fiable plutôt qu'inventée par l'IA.
   let crossRefList=[];
   try{
@@ -824,25 +840,29 @@ Génère UNIQUEMENT un JSON valide avec cette structure exacte :
     "application": {"ref": "Livre ch:v (OBLIGATOIREMENT un verset pris DANS la péricope ${ref})", "texte": "", "message": "application directe et personnelle au lecteur, chaleureuse et concrète, ancrée dans ce verset de la péricope"}
   }
 }
-RÈGLES IMPORTANTES POUR LES 4 PÉRIODES (méthode Dr. Arkad) — c'est la règle la plus souvent violée, sois EXTRÊMEMENT rigoureux. Chaque période a EXACTEMENT deux zones de livres autorisés (une AT, une NT) et AUCUN AUTRE LIVRE n'est permis dans cette période :
+RÈGLES IMPORTANTES POUR LES 4 PÉRIODES (méthode Dr. Arkad) — c'est la règle la plus souvent violée, sois EXTRÊMEMENT rigoureux. Chaque période a une SIGNIFICATION précise ET exactement deux zones de livres autorisés (une AT, une NT) ; AUCUN AUTRE LIVRE n'est permis dans cette période :
 
-1. "histoire" — AT autorisé UNIQUEMENT : Josué, Juges, Ruth, 1 Samuel, 2 Samuel, 1 Rois, 2 Rois, 1 Chroniques, 2 Chroniques, Esdras, Néhémie, Esther.
+1. "histoire" = L'IDENTITÉ DU CHRÉTIEN — fais ressortir l'identité que le chrétien DEVRAIT avoir (ou ne pas avoir), en lien avec la Pensée.
+   AT autorisé UNIQUEMENT : Josué, Juges, Ruth, 1 Samuel, 2 Samuel, 1 Rois, 2 Rois, 1 Chroniques, 2 Chroniques, Esdras, Néhémie, Esther.
    NT autorisé UNIQUEMENT : Actes des Apôtres.
    INTERDIT ici : Genèse à Deutéronome, tout prophète, tout poétique, tout évangile, toute épître, l'Apocalypse.
 
-2. "loi" — AT autorisé UNIQUEMENT : Genèse, Exode, Lévitique, Nombres, Deutéronome.
+2. "loi" = LA VOLONTÉ DE DIEU QUE LE CHRÉTIEN DOIT FAIRE — ce que Dieu demande de faire (ou de ne pas faire), en lien avec la Pensée.
+   AT autorisé UNIQUEMENT : Genèse, Exode, Lévitique, Nombres, Deutéronome.
    NT autorisé UNIQUEMENT : Matthieu, Marc, Luc, Jean (les 4 évangiles).
    INTERDIT ici : tout livre historique (Josué-Esther), tout prophète, tout poétique, Actes, toute épître, l'Apocalypse.
 
-3. "prophetie" — AT autorisé UNIQUEMENT : Ésaïe, Jérémie, Lamentations, Ézéchiel, Daniel, Osée, Joël, Amos, Abdias, Jonas, Michée, Nahum, Habacuc, Sophonie, Aggée, Zacharie, Malachie.
+3. "prophetie" = LA VOLONTÉ DE DIEU À ACCOMPLIR PAR LE CHRÉTIEN — ce qui s'accomplit comme fruit/conséquence de l'obéissance, en lien avec la Pensée.
+   AT autorisé UNIQUEMENT : Ésaïe, Jérémie, Lamentations, Ézéchiel, Daniel, Osée, Joël, Amos, Abdias, Jonas, Michée, Nahum, Habacuc, Sophonie, Aggée, Zacharie, Malachie.
    NT autorisé UNIQUEMENT : Apocalypse.
    INTERDIT ici : Pentateuque, livres historiques, poétiques, évangiles, Actes, épîtres.
 
-4. "poesie" — AT autorisé UNIQUEMENT : Job, Psaumes, Proverbes, Ecclésiaste, Cantique des Cantiques.
+4. "poesie" = LE MODÈLE DE VIE QUE LE CHRÉTIEN LAISSE À SES DISCIPLES — la sagesse et la posture spirituelle transmises, en lien avec la Pensée.
+   AT autorisé UNIQUEMENT : Job, Psaumes, Proverbes, Ecclésiaste, Cantique des Cantiques.
    NT autorisé UNIQUEMENT : Romains, 1 Corinthiens, 2 Corinthiens, Galates, Éphésiens, Philippiens, Colossiens, 1 Thessaloniciens, 2 Thessaloniciens, 1 Timothée, 2 Timothée, Tite, Philémon, Hébreux, Jacques, 1 Pierre, 2 Pierre, 1 Jean, 2 Jean, 3 Jean, Jude (les épîtres).
    INTERDIT ici : Pentateuque, livres historiques, prophètes, évangiles, Actes, Apocalypse.
 
-Avant de répondre, vérifie pour CHAQUE texte "at" et "nt" de CHAQUE période que le livre cité figure bien dans la liste "autorisé" correspondante. Si un livre ne figure dans aucune liste pour la zone choisie, change de texte.
+VÉRIFICATION OBLIGATOIRE AVANT DE RÉPONDRE : pour CHAQUE texte "at" et "nt" de CHAQUE période (y compris ceux de volonte.periodes), contrôle LIVRE PAR LIVRE que le livre cité figure bien dans la liste "autorisé" de CETTE période ET de CETTE zone (AT ou NT). Si un livre n'y figure pas, REMPLACE le texte par un autre tiré d'un livre autorisé. Placer un texte dans la mauvaise période est une ERREUR GRAVE à ne jamais commettre.
 
 RÈGLE OBLIGATOIRE SUR LE NOMBRE DE TEXTES : pour CHACUNE des 4 périodes (histoire, loi, prophetie, poesie), "at" et "nt" sont des TABLEAUX d'EXACTEMENT 4 textes chacun (donc 4 AT + 4 NT = 8 textes par période, soit 32 textes au total pour les 4 périodes) — cherche ces textes à travers TOUTE la Bible (pas seulement la péricope), en respectant strictement la liste de livres autorisés pour la période et la zone (AT/NT) concernées. Jamais moins de 4 éléments dans un tableau "at" ou "nt". Fais exactement de même pour "volonte.periodes" (4 at + 4 nt par période également, donc 32 textes supplémentaires).
 
@@ -852,7 +872,7 @@ RÈGLES GÉNÉRALES :
 - "resume" = un résumé bref et précis de la péricope, 2 à 3 phrases simples, compréhensibles immédiatement, qui situent le contexte et l'enseignement central — à placer juste avant les textes d'explication
 - La Pensée = le verset de la péricope qui reflète et résume TOUS les textes de preuves
 - "pensee.commentaire" = un commentaire simple et clair (même registre que "volonte.explication") qui explique pourquoi ce verset résume la péricope — il sera affiché juste après les textes d'explication
-- Les preuves = ${crossRefList.length?'pars de la liste de références croisées fournie ci-dessus (garde-les TOUTES, dans le même ordre, sans changer de livre ni de chapitre). Si une référence couvre une plage large ou un chapitre entier, RESTREINS-la dans "ref" au(x) SEUL(S) verset(s) précis qui justifie(nt) la Pensée — ex. "Jérémie 31:4-14, 23-28" devient "Jérémie 31:10" si c\'est ce verset qui justifie la Pensée. Mets le lien explicatif dans "lien"':'références classiques LS1910 de cette péricope (celles en tête dans les Bibles annotées), restreintes au(x) seul(s) verset(s) qui justifie(nt) la Pensée'}
+- Les preuves = ${crossRefList.length?'pars de la liste de références croisées fournie ci-dessus et TRAITE-LES TOUTES, sans en omettre AUCUNE, dans le même ordre, sans changer de livre ni de chapitre. Pour CHACUNE : si elle couvre une plage large ou un chapitre entier, RESTREINS-la dans "ref" au(x) SEUL(S) verset(s) précis qui justifie(nt) la Pensée — ex. "Jérémie 31:4-14, 23-28" devient "Jérémie 31:10" si c\'est ce verset qui justifie la Pensée. Dans "lien", explique en UNE phrase EN QUOI ce verset soutient précisément la Pensée':'références classiques LS1910 de cette péricope (celles en tête dans les Bibles annotées), chacune restreinte au(x) seul(s) verset(s) qui justifie(nt) la Pensée, avec un "lien" expliquant le rapport avec la Pensée'}
 - La Volonté de Dieu = soit la cause (pourquoi Dieu agit) soit la conséquence (ce qui résulte) de la Pensée
 
 RÈGLES DE RIGUEUR SUR LES TEXTES D'EXPLICATION (à respecter pour CHAQUE texte "at"/"nt") :
@@ -959,7 +979,7 @@ EXHORTATION QUOTIDIENNE ("exhortation") : rédige une exhortation courte, vivant
       }
     }catch(e){ /* en cas d'échec, on garde le texte rédigé par l'IA */ }
 
-    study._requestedRef=ref;
+    study._requestedRef=requestedRef;
     currentStudy=study;
     setTimeout(()=>{
       stopLoadingAnim();
@@ -990,9 +1010,9 @@ function renderStudy(s){
   const n=studyNotes[s.reference]||'';
   const pConfig={
     histoire:{cls:'ph',icon:'🕰',lbl:'Histoire',def:"L'identité du chrétien"},
-    loi:     {cls:'pl',icon:'⚖️',lbl:'Loi',     def:'La volonté à faire'},
-    prophetie:{cls:'ppr',icon:'👁',lbl:'Prophétie',def:'La volonté à accomplir'},
-    poesie:  {cls:'ppo',icon:'🎶',lbl:'Poésie',  def:'Le modèle de vie'}
+    loi:     {cls:'pl',icon:'⚖️',lbl:'Loi',     def:'La volonté de Dieu à faire'},
+    prophetie:{cls:'ppr',icon:'👁',lbl:'Prophétie',def:'La volonté de Dieu à accomplir'},
+    poesie:  {cls:'ppo',icon:'🎶',lbl:'Poésie',  def:'Le modèle de vie à transmettre'}
   };
   function escAttr(s){return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\n/g,' ')}
   function txCard(tx,label,pk,zone,idx){
@@ -1031,10 +1051,13 @@ function renderStudy(s){
     </div>`;
   }
   let prevHtml=(s.preuves||[]).map(p=>`
-    <div class="preuve-item">
-      <span class="preuve-ref">${p.ref||''}</span>
-      <span class="preuve-prev">${(p.texte||'').substring(0,60)}…</span>
-      <button class="eye-btn" onclick="showModal('${escAttr(p.ref)}','${escAttr(p.texte)}')">👁</button>
+    <div class="preuve-block">
+      <div class="preuve-item">
+        <span class="preuve-ref">${p.ref||''}</span>
+        <span class="preuve-prev">${(p.texte||'').substring(0,60)}…</span>
+        <button class="eye-btn" onclick="showModal('${escAttr(p.ref)}','${escAttr(p.texte)}')">👁</button>
+      </div>
+      ${p.lien?`<div class="preuve-lien">→ ${p.lien}</div>`:''}
     </div>`).join('');
   let versetsHtml=(s.pericopeVersets||[]).map(v=>{
     const ip=s.pensee&&s.pensee.ref&&s.pensee.ref.includes(':'+v.n);
@@ -1412,7 +1435,15 @@ function renderSaved(){
     el.innerHTML='<div class="saved-empty">📖<br><br>Aucune étude enregistrée.<br>Générez une étude et touchez <strong>🔖 Enregistrer</strong>.</div>';
     return;
   }
-  el.innerHTML=savedStudies.map(s=>`
+  const norm=(x)=>(x||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const qRaw=(document.getElementById('savedSearch')&&document.getElementById('savedSearch').value||'').trim();
+  const nq=norm(qRaw);
+  const list=nq?savedStudies.filter(s=>norm((s.titre||'')+' '+(s.ref||'')+' '+(s.pensee||'')).includes(nq)):savedStudies;
+  if(!list.length){
+    el.innerHTML='<div class="saved-empty">🔍<br><br>Aucune étude ne correspond à « '+qRaw+' ».</div>';
+    return;
+  }
+  el.innerHTML=list.map(s=>`
     <div class="saved-item" onclick="loadSaved('${(s.ref||'').replace(/'/g,"\\'")}')">
       <div class="si-titre">${s.titre||s.ref}</div>
       <div class="si-ref">📖 ${s.ref}</div>
