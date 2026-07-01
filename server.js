@@ -245,7 +245,7 @@ const EXTRA_ALIASES = {
   es:'Isa', esaie:'Isa', isaie:'Isa',
   jr:'Jer', jer:'Jer', jeremie:'Jer',
   lm:'Lam', lam:'Lam', lamentations:'Lam',
-  ez:'Ezek', eze:'Ezek', ezechiel:'Ezek',
+  ez:'Ezek', eze:'Ezek', ezechiel:'Ezek', ezekiel:'Ezek', ezeckiel:'Ezek', ezechie:'Ezek',
   da:'Dan', dan:'Dan', daniel:'Dan',
   os:'Hos', osee:'Hos',
   jl:'Joel', joel:'Joel',
