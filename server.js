@@ -291,6 +291,31 @@ for (const [k, v] of Object.entries(EXTRA_ALIASES)) {
   FR_TO_OSIS[stripAccents(k)] = v;
 }
 
+// Résout un nom de livre en code OSIS de façon TOLÉRANTE : accents, espaces,
+// abréviations, et fautes de frappe par lettre(s) manquante(s) — ex. "1 timothé"
+// -> "1 Timothée", "matthie" -> "Matthieu", "philipp" -> "Philippiens".
+function resolveBook(bookRaw) {
+  const key = stripAccents(bookRaw).replace(/\s+/g, ' ').trim();
+  if (!key) return undefined;
+  if (FR_TO_OSIS[key]) return FR_TO_OSIS[key];
+  const nospace = key.replace(/\s+/g, '');
+  if (FR_TO_OSIS[nospace]) return FR_TO_OSIS[nospace];
+  // Repli par préfixe : une clé connue commence par la saisie, ou l'inverse.
+  // On exige au moins 4 caractères de part et d'autre, et on garde la clé la
+  // plus proche en longueur pour limiter les ambiguïtés.
+  if (key.length >= 4) {
+    let best = null;
+    for (const k of Object.keys(FR_TO_OSIS)) {
+      if (k.length < 4) continue;
+      if (k.startsWith(key) || key.startsWith(k)) {
+        if (!best || Math.abs(k.length - key.length) < Math.abs(best.length - key.length)) best = k;
+      }
+    }
+    if (best) return FR_TO_OSIS[best];
+  }
+  return undefined;
+}
+
 // Accepte aussi bien "Livre ch:v", "Livre ch:v1-v2" que les références
 // groupées non-contiguës "Livre ch:v1, v2" / "Livre ch:v1-v3, v8" (telles que
 // produites par mergeAndFormatRefs pour les "preuves"). `ranges` contient
@@ -311,7 +336,7 @@ function parseFrenchRef(ref) {
     if (!m) return null;
     book = m[1]; chapter = parseInt(m[2], 10);
   }
-  const osis = FR_TO_OSIS[stripAccents(book)];
+  const osis = resolveBook(book);
   if (!osis) return null;
   const ranges = versesStr ? mergeRanges(parseVerseList(versesStr)) : [];
   const verseStart = ranges.length ? ranges[0].verseStart : null;
